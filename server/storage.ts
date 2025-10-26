@@ -49,7 +49,18 @@ export class MemStorage implements IStorage {
 
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
     const id = randomUUID();
-    const exercise: Exercise = { ...insertExercise, id };
+    const exercise: Exercise = { 
+      id,
+      workoutId: insertExercise.workoutId,
+      exerciseName: insertExercise.exerciseName,
+      alternateExercise: insertExercise.alternateExercise ?? null,
+      sets: insertExercise.sets,
+      warmupSets: insertExercise.warmupSets ?? null,
+      restTimer: insertExercise.restTimer,
+      rpe: insertExercise.rpe ?? null,
+      repRangeMin: insertExercise.repRangeMin,
+      repRangeMax: insertExercise.repRangeMax,
+    };
     this.exercises.set(id, exercise);
     return exercise;
   }
@@ -58,7 +69,13 @@ export class MemStorage implements IStorage {
     const exercise = this.exercises.get(id);
     if (!exercise) return undefined;
     
-    const updated = { ...exercise, ...updates };
+    const updated: Exercise = { 
+      ...exercise, 
+      ...updates,
+      alternateExercise: updates.alternateExercise !== undefined ? updates.alternateExercise : exercise.alternateExercise,
+      warmupSets: updates.warmupSets !== undefined ? updates.warmupSets : exercise.warmupSets,
+      rpe: updates.rpe !== undefined ? updates.rpe : exercise.rpe,
+    };
     this.exercises.set(id, updated);
     return updated;
   }

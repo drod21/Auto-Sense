@@ -5,11 +5,11 @@ import { Play, Timer, TrendingUp, Hash, Flame } from "lucide-react";
 
 interface ExerciseCardProps {
   exerciseName: string;
-  alternateExercise?: string;
+  alternateExercise?: string | null;
   sets: number;
-  warmupSets: number;
+  warmupSets: number | null;
   restTimer: number;
-  rpe?: number;
+  rpe?: number | null;
   repRangeMin: number;
   repRangeMax: number;
   onStart?: () => void;
@@ -53,7 +53,7 @@ export default function ExerciseCard({
             </div>
           </div>
 
-          {warmupSets > 0 && (
+          {(warmupSets || 0) > 0 && (
             <div className="flex items-center gap-2">
               <Flame className="w-4 h-4 text-muted-foreground" />
               <div>

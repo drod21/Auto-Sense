@@ -2,6 +2,8 @@ import { Upload, FileSpreadsheet, Loader2, CheckCircle2 } from "lucide-react";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type UploadState = "idle" | "uploading" | "parsing" | "success";
 
@@ -14,6 +16,9 @@ export default function UploadZone({ onFileSelect }: UploadZoneProps) {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState("");
+  const [exerciseCount, setExerciseCount] = useState(0);
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -42,34 +47,71 @@ export default function UploadZone({ onFileSelect }: UploadZoneProps) {
     }
   }, []);
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     setFileName(file.name);
     setUploadState("uploading");
     setProgress(0);
 
+    // Simulate upload progress
     const uploadInterval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 100) {
+        if (prev >= 90) {
           clearInterval(uploadInterval);
-          setUploadState("parsing");
-          
-          setTimeout(() => {
-            setUploadState("success");
-            setTimeout(() => {
-              setUploadState("idle");
-              setProgress(0);
-              setFileName("");
-            }, 2000);
-          }, 2000);
-          
-          return 100;
+          return 90;
         }
         return prev + 10;
       });
     }, 100);
 
-    onFileSelect?.(file);
-    console.log("File selected:", file.name);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", file.name.replace(/\.(csv|xlsx|xls)$/i, ''));
+
+      setProgress(100);
+      setUploadState("parsing");
+
+      const response = await fetch("/api/workouts/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(uploadInterval);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Upload failed");
+      }
+
+      const data = await response.json();
+      setExerciseCount(data.exercises.length);
+      setUploadState("success");
+
+      toast({
+        title: "Upload successful!",
+        description: `Found ${data.exercises.length} exercises in your workout plan.`,
+      });
+
+      // Redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate("/");
+      }, 2000);
+
+      onFileSelect?.(file);
+    } catch (error) {
+      clearInterval(uploadInterval);
+      console.error("Upload error:", error);
+      
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to process file",
+        variant: "destructive",
+      });
+
+      setUploadState("idle");
+      setProgress(0);
+      setFileName("");
+    }
   };
 
   return (
@@ -143,7 +185,10 @@ export default function UploadZone({ onFileSelect }: UploadZoneProps) {
             </div>
             <h3 className="text-xl font-semibold text-green-600">Parsing Complete!</h3>
             <p className="text-sm text-muted-foreground">
-              Found 8 exercises in your workout plan
+              Found {exerciseCount} exercises in your workout plan
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Redirecting to dashboard...
             </p>
           </div>
         )}

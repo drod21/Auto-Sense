@@ -12,11 +12,11 @@ import { Edit2, Trash2 } from "lucide-react";
 interface Exercise {
   id: string;
   exerciseName: string;
-  alternateExercise?: string;
+  alternateExercise?: string | null;
   sets: number;
-  warmupSets: number;
+  warmupSets: number | null;
   restTimer: number;
-  rpe?: number;
+  rpe?: number | null;
   repRangeMin: number;
   repRangeMax: number;
 }
@@ -58,7 +58,7 @@ export default function ParsedDataTable({ exercises, onEdit, onDelete }: ParsedD
                 {exercise.alternateExercise || "—"}
               </TableCell>
               <TableCell className="text-center font-mono">{exercise.sets}</TableCell>
-              <TableCell className="text-center font-mono">{exercise.warmupSets}</TableCell>
+              <TableCell className="text-center font-mono">{exercise.warmupSets || 0}</TableCell>
               <TableCell className="text-center font-mono">{formatTime(exercise.restTimer)}</TableCell>
               <TableCell className="text-center font-mono">
                 {exercise.rpe ? `${exercise.rpe}/10` : "—"}

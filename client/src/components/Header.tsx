@@ -65,7 +65,7 @@ export default function Header() {
             <SheetTitle className="text-lg">Menu</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col p-4 gap-2">
-            <Link href="/">
+            <Link href="/"`>
               <Button
                 variant={location === "/" ? "secondary" : "ghost"}
                 size="lg"

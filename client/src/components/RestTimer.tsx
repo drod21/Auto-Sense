@@ -26,62 +26,9 @@ export default function RestTimer({
 }: RestTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(duration);
   const [isPaused, setIsPaused] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Initialize audio
-  useEffect(() => {
-    // Create a simple beep sound using the Web Audio API
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    const audioContext = new AudioContext();
-    
-    const createBeep = () => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    };
-    
-    return () => {
-      audioContext.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isActive && !isPaused && timeRemaining > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            // Play sound when timer completes
-            playCompletionSound();
-            onComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isActive, isPaused, timeRemaining, onComplete]);
 
   const playCompletionSound = () => {
     try {
@@ -131,6 +78,61 @@ export default function RestTimer({
       console.error("Could not play sound:", error);
     }
   };
+
+  // Initialize audio
+  useEffect(() => {
+    // Create a simple beep sound using the Web Audio API
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    const audioContext = new AudioContext();
+    
+    const createBeep = () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    };
+    
+    return () => {
+      audioContext.close();
+    };
+  }, []);
+
+  // Handle timer completion
+  useEffect(() => {
+    if (timeRemaining === 0 && !isCompleted) {
+      setIsCompleted(true);
+      playCompletionSound();
+      onComplete();
+    }
+  }, [timeRemaining, isCompleted, onComplete]);
+
+  useEffect(() => {
+    if (isActive && !isPaused && timeRemaining > 0) {
+      intervalRef.current = setInterval(() => {
+        setTimeRemaining(prev => Math.max(0, prev - 1));
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isActive, isPaused, timeRemaining]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

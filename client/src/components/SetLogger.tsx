@@ -228,7 +228,14 @@ export default function SetLogger({
               type="submit" 
               size="lg" 
               className="w-full"
-              disabled={!weight || !reps}
+              disabled={
+                !weight || 
+                !reps || 
+                isNaN(parseFloat(weight)) || 
+                isNaN(parseInt(reps)) || 
+                parseFloat(weight) <= 0 || 
+                parseInt(reps) <= 0
+              }
               data-testid="button-complete-set"
             >
               <Plus className="h-5 w-5 mr-2" />

@@ -253,6 +253,16 @@ export default function Dashboard() {
                                   </div>
                                 ))}
                               </div>
+                              <Link href={`/workout/${day.id}`} className="block">
+                                <Button 
+                                  className="w-full mt-3"
+                                  size="lg"
+                                  data-testid={`button-start-workout-${day.id}`}
+                                >
+                                  <Dumbbell className="w-4 h-4 mr-2" />
+                                  Start Workout
+                                </Button>
+                              </Link>
                             </>
                           )}
                         </CardContent>

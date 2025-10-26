@@ -161,6 +161,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get workout day by ID with exercises
+  app.get("/api/workout-days/:id", async (req, res) => {
+    try {
+      const workoutDay = await storage.getWorkoutDay(req.params.id);
+      if (!workoutDay) {
+        return res.status(404).json({ error: "Workout day not found" });
+      }
+
+      const exercises = await storage.getExercisesByWorkoutDayId(req.params.id);
+      
+      res.json({ ...workoutDay, exercises });
+    } catch (error) {
+      console.error("Error fetching workout day:", error);
+      res.status(500).json({ error: "Failed to fetch workout day" });
+    }
+  });
+
   // Get all exercises (for dashboard - backward compatibility)
   app.get("/api/exercises", async (req, res) => {
     try {

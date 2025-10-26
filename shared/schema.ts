@@ -78,6 +78,31 @@ export type WorkoutDay = typeof workoutDays.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 
+// Workout Session Types (for tracking active workouts)
+export interface CompletedSet {
+  setNumber: number;
+  weight: number;
+  reps: number;
+  rpe?: number;
+  completedAt: string;
+  isWarmup?: boolean;
+}
+
+export interface ExerciseProgress {
+  exerciseId: string;
+  completedSets: CompletedSet[];
+  isComplete: boolean;
+}
+
+export interface WorkoutSession {
+  workoutDayId: string;
+  startedAt: string;
+  completedAt?: string;
+  exerciseProgress: ExerciseProgress[];
+  currentExerciseIndex: number;
+  isComplete: boolean;
+}
+
 // Legacy types for backwards compatibility (will be removed later)
 export const workouts = programs; // Alias for backwards compat
 export type Workout = Program;

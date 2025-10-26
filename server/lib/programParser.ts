@@ -47,22 +47,26 @@ export async function parseProgramSpreadsheet(
   // Extract program name from filename
   const programName = filename.replace(/\.(xlsx|xls|csv)$/i, '').replace(/_/g, ' ');
   
-  // Process each sheet as a phase - one at a time to avoid timeouts
-  const phases: ParsedPhase[] = [];
+  console.log(`Starting parallel processing of ${workbook.SheetNames.length} sheets...`);
   
-  for (let i = 0; i < workbook.SheetNames.length; i++) {
-    const sheetName = workbook.SheetNames[i];
+  // Process all sheets in parallel for maximum speed
+  const phasePromises = workbook.SheetNames.map((sheetName, i) => {
     const sheet = workbook.Sheets[sheetName];
     const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     
     console.log(`Processing sheet ${i + 1}/${workbook.SheetNames.length}: ${sheetName}`);
     
     // Use OpenAI to parse this phase
-    const phase = await parsePhaseWithOpenAI(sheetName, sheetData, i + 1);
-    phases.push(phase);
-    
-    console.log(`Completed sheet ${i + 1}: Found ${phase.workoutDays.length} workout days`);
-  }
+    return parsePhaseWithOpenAI(sheetName, sheetData, i + 1);
+  });
+  
+  // Wait for all sheets to be processed in parallel
+  const phases = await Promise.all(phasePromises);
+  
+  console.log(`Completed all ${phases.length} sheets in parallel`);
+  phases.forEach((phase, i) => {
+    console.log(`  Sheet ${i + 1}: Found ${phase.workoutDays.length} workout days`);
+  });
   
   return {
     programName,
@@ -93,7 +97,6 @@ async function parsePhaseWithOpenAI(
       console.log(`Calling OpenAI for sheet "${sheetName}" (attempt ${retries + 1}/${maxRetries})...`);
       const completion = await openai.chat.completions.create({
     model: "gpt-5",
-    timeout: 90000, // 90 second timeout
     messages: [
       {
         role: "system",

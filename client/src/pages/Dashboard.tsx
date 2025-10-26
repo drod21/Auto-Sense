@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Upload, Dumbbell, Calendar } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -27,16 +28,22 @@ interface ProgramResponse {
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: programs = [], isLoading } = useQuery<Program[]>({
     queryKey: ["/api/programs"],
   });
 
-  // Fetch full details for the first program (if exists)
+  // Set default selected program when programs are loaded
+  if (programs.length > 0 && !selectedProgramId) {
+    setSelectedProgramId(programs[0].id);
+  }
+
+  // Fetch full details for the selected program
   const { data: programData, isLoading: isProgramLoading } = useQuery<ProgramResponse>({
-    queryKey: ["/api/programs", programs[0]?.id],
-    enabled: programs.length > 0,
+    queryKey: ["/api/programs", selectedProgramId],
+    enabled: !!selectedProgramId,
   });
 
   const allWorkoutDays: (WorkoutDay & { 
@@ -99,12 +106,30 @@ export default function Dashboard() {
       
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-4xl font-bold mb-1 sm:mb-2" data-testid="text-dashboard-title">
-            {programData?.program.name || "Your Workouts"}
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {programData?.program.description || "Manage and track your workout program"}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-4xl font-bold mb-1 sm:mb-2" data-testid="text-dashboard-title">
+                {programData?.program.name || "Your Workouts"}
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                {programData?.program.description || "Manage and track your workout program"}
+              </p>
+            </div>
+            {programs.length > 1 && (
+              <Select value={selectedProgramId || undefined} onValueChange={setSelectedProgramId}>
+                <SelectTrigger className="w-full sm:w-[250px] h-11" data-testid="select-program">
+                  <SelectValue placeholder="Select a program" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {allWorkoutDays.length > 0 && (

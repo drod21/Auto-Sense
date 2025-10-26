@@ -79,6 +79,7 @@ Preferred communication style: Simple, everyday language.
 - Parallel processing of all sheets for maximum performance
 - Error handling for malformed AI responses with retry logic for rate limits
 - **Data Validation:** Built-in validation ensures warmup sets (0-5 range), working sets (1-10 range), and RPE (1-10 or special values) are within reasonable workout ranges. Automatically fixes Excel date serial numbers that may be misinterpreted as exercise values
+- **Superset Detection:** Automatically identifies and pairs exercises with static stretches, marking them as A1/A2 supersets. Ensures proper exercise ordering within each workout day with unique sequential numbers
 
 ### External Dependencies
 

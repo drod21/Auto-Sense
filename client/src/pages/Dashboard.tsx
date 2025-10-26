@@ -13,10 +13,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Upload, Dumbbell, Calendar } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Search, Upload, Dumbbell, Calendar, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Program, Phase, WorkoutDay, Exercise } from "@shared/schema";
 
 interface PhaseWithDays extends Phase {
@@ -37,6 +47,8 @@ export default function Dashboard() {
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
     null,
   );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [programToDelete, setProgramToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const {
@@ -67,6 +79,45 @@ export default function Dashboard() {
       queryKey: ["/api/programs", selectedProgramId ?? programs?.[0]?.id],
       enabled: !!selectedProgramId,
     });
+
+  // Delete program mutation
+  const deleteProgramMutation = useMutation({
+    mutationFn: async (programId: string) => {
+      return await apiRequest("DELETE", `/api/programs/${programId}`);
+    },
+    onSuccess: (_, deletedProgramId) => {
+      // Invalidate the programs list query
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      // Remove the detail query for the deleted program
+      queryClient.removeQueries({ queryKey: ["/api/programs", deletedProgramId] });
+      // Clear the selected program so the useEffect will select a new one
+      setSelectedProgramId(null);
+      toast({
+        title: "Program deleted",
+        description: "The program has been successfully deleted.",
+      });
+      setDeleteDialogOpen(false);
+      setProgramToDelete(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete program",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteClick = (programId: string) => {
+    setProgramToDelete(programId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (programToDelete) {
+      deleteProgramMutation.mutate(programToDelete);
+    }
+  };
 
   const allWorkoutDays: (WorkoutDay & {
     exercises: Exercise[];
@@ -144,26 +195,39 @@ export default function Dashboard() {
                   "Manage and track your workout program"}
               </p>
             </div>
-            {programs.length > 1 && (
-              <Select
-                value={selectedProgramId || undefined}
-                onValueChange={setSelectedProgramId}
-              >
-                <SelectTrigger
-                  className="w-full sm:w-[250px] h-11"
-                  data-testid="select-program"
+            <div className="flex items-center gap-2">
+              {programs.length > 1 && (
+                <Select
+                  value={selectedProgramId || undefined}
+                  onValueChange={setSelectedProgramId}
                 >
-                  <SelectValue placeholder="Select a program" />
-                </SelectTrigger>
-                <SelectContent>
-                  {programs.map((program) => (
-                    <SelectItem key={program.id} value={program.id}>
-                      {program.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+                  <SelectTrigger
+                    className="w-full sm:w-[250px] h-11"
+                    data-testid="select-program"
+                  >
+                    <SelectValue placeholder="Select a program" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {programs.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {selectedProgramId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDeleteClick(selectedProgramId)}
+                  data-testid="button-delete-program"
+                  className="h-11 w-11"
+                >
+                  <Trash2 className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
         {isSuccess && programs.length === 0 && (
@@ -409,6 +473,31 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent data-testid="dialog-delete-program">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Program</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this program? This will permanently
+              remove the program and all its phases, workout days, and exercises.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              data-testid="button-confirm-delete"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteProgramMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

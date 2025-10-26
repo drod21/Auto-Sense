@@ -12,6 +12,7 @@ export interface IStorage {
   getProgram(id: string): Promise<Program | undefined>;
   getAllPrograms(): Promise<Program[]>;
   createProgram(program: InsertProgram): Promise<Program>;
+  deleteProgram(id: string): Promise<boolean>;
   
   // Phase methods
   getPhase(id: string): Promise<Phase | undefined>;
@@ -46,6 +47,25 @@ export class DbStorage implements IStorage {
   async createProgram(insertProgram: InsertProgram): Promise<Program> {
     const result = await db.insert(programs).values(insertProgram).returning();
     return result[0];
+  }
+
+  async deleteProgram(id: string): Promise<boolean> {
+    // Delete all related data in correct order (exercises -> workout days -> phases -> program)
+    const programPhases = await db.select().from(phases).where(eq(phases.programId, id));
+    
+    for (const phase of programPhases) {
+      const phaseWorkoutDays = await db.select().from(workoutDays).where(eq(workoutDays.phaseId, phase.id));
+      
+      for (const day of phaseWorkoutDays) {
+        await db.delete(exercises).where(eq(exercises.workoutDayId, day.id));
+      }
+      
+      await db.delete(workoutDays).where(eq(workoutDays.phaseId, phase.id));
+    }
+    
+    await db.delete(phases).where(eq(phases.programId, id));
+    const result = await db.delete(programs).where(eq(programs.id, id)).returning();
+    return result.length > 0;
   }
 
   // Phase methods

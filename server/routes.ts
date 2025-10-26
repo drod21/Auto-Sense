@@ -129,6 +129,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete a program
+  app.delete("/api/programs/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteProgram(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Program not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting program:", error);
+      res.status(500).json({ error: "Failed to delete program" });
+    }
+  });
+
   // Get program by ID with full structure
   app.get("/api/programs/:id", async (req, res) => {
     try {

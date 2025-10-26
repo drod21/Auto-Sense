@@ -90,8 +90,10 @@ async function parsePhaseWithOpenAI(
   
   while (retries < maxRetries) {
     try {
+      console.log(`Calling OpenAI for sheet "${sheetName}" (attempt ${retries + 1}/${maxRetries})...`);
       const completion = await openai.chat.completions.create({
     model: "gpt-5",
+    timeout: 90000, // 90 second timeout
     messages: [
       {
         role: "system",
@@ -169,7 +171,9 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
         throw new Error("No response from OpenAI");
       }
 
+      console.log(`OpenAI response received for sheet "${sheetName}" (${content.length} chars)`);
       parsed = JSON.parse(content);
+      console.log(`Successfully parsed ${parsed.workoutDays?.length || 0} workout days from sheet "${sheetName}"`);
       
       // Success! Exit the retry loop
       break;

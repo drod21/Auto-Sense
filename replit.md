@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 - Responsive grid layouts: 3-column on desktop, 2-column on tablet, single column on mobile
 
 **Key UI Pages:**
-- Dashboard: Main view displaying all exercises with grid/table toggle, search functionality, and exercise management
+- Dashboard: Main view displaying workout programs with phases and workout days. Shows workout days as cards with exercises grouped within each day. Includes search functionality and program statistics.
 - Upload: Drag-and-drop file upload interface with progress tracking and AI parsing feedback
 - 404: Not Found fallback page
 
@@ -49,18 +49,20 @@ Preferred communication style: Simple, everyday language.
 - Drizzle ORM configured for PostgreSQL (via Neon serverless) but currently using in-memory storage
 - UUID-based primary keys using `crypto.randomUUID()`
 
-**Schema Design:**
-- `workouts` table: id, name, upload_date
-- `exercises` table: id, workout_id (foreign key), exercise_name, alternate_exercise, sets, warmup_sets, rest_timer, rpe, rep_range_min, rep_range_max
+**Schema Design (Hierarchical Structure):**
+- `programs` table: id, name, uploadDate, description (top-level entity)
+- `phases` table: id, programId, name, phaseNumber, description (subdivisions of a program)
+- `workout_days` table: id, phaseId, dayName, dayNumber, isRestDay, weekNumber (individual training sessions)
+- `exercises` table: id, workoutDayId, exerciseName, warmupSets, workingSets, reps, load, rpe, restTimer, substitutionOption1, substitutionOption2, notes, supersetGroup, exerciseOrder
 - Zod schemas for runtime validation derived from Drizzle schema definitions
 
 **File Processing Pipeline:**
 1. Multer middleware handles file uploads (10MB limit, CSV/Excel only)
-2. File buffer parsed using appropriate library (Papa Parse for CSV, XLSX for Excel)
-3. Raw tabular data converted to JSON string
-4. OpenAI API called with structured prompt to extract exercise data
-5. Parsed exercises validated against Zod schema
-6. Valid exercises stored with associated workout ID
+2. Excel/CSV file parsed to extract all sheets (phases) using XLSX library
+3. Each sheet processed in parallel using OpenAI to identify workout days and exercises
+4. OpenAI extracts complete program structure: phases → workout days → exercises
+5. Parsed data validated against Zod schemas
+6. Complete hierarchy stored: program, phases, workout days, and exercises with proper foreign key relationships
 
 ### AI Integration
 
@@ -70,10 +72,12 @@ Preferred communication style: Simple, everyday language.
 - Base URL and API key injected through Replit's platform
 
 **Parsing Strategy:**
-- Spreadsheet data extracted as raw text/JSON representation
-- LLM receives unstructured data and outputs structured exercise objects
-- Response schema includes: exercise name, alternate exercise, sets, warmup sets, rest timer, RPE, rep range (min/max)
-- Error handling for malformed AI responses with fallback validation
+- Complete program structure extracted from multi-sheet Excel files
+- Each sheet represents a phase with multiple workout days
+- LLM receives unstructured spreadsheet data and outputs structured program hierarchy
+- Response schema includes: phase info, workout days (with day names, numbers, rest day flags), and exercises (with name, sets, reps, RPE, rest timers, substitution options, superset grouping)
+- Parallel processing of all sheets for maximum performance
+- Error handling for malformed AI responses with retry logic for rate limits
 
 ### External Dependencies
 

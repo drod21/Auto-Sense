@@ -3,13 +3,22 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+const reactCompilerConfig = {
+  compilationMode: "all",
+  logger: {
+    panicThreshold: "none", // Skip components with errors instead of failing the build,
+    logEvent(filename: any, event: any) {
+      if (event.kind === "CompileSuccess") {
+        console.log("Compiled:", filename);
+      }
+    },
+  },
+};
 export default defineConfig({
   plugins: [
     react({
       babel: {
-        plugins: [
-          ["babel-plugin-react-compiler", { compilationMode: "infer" }],
-        ],
+        plugins: [["babel-plugin-react-compiler", reactCompilerConfig]],
       },
     }),
     runtimeErrorOverlay(),

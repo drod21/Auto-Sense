@@ -5,13 +5,6 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const reactCompilerConfig = {
   compilationMode: "infer",
-  logger: {
-    logEvent(filename: any, event: any) {
-      if (event.kind === "CompileSuccess") {
-        console.log("Compiled:", filename);
-      }
-    },
-  },
 };
 export default defineConfig({
   plugins: [

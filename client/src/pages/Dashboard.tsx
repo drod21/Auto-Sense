@@ -39,14 +39,32 @@ export default function Dashboard() {
   );
   const { toast } = useToast();
 
-  const { data: programs = [], isLoading } = useQuery<Program[]>({
+  const {
+    data: programs = [],
+    isLoading,
+    isSuccess,
+  } = useQuery<Program[]>({
     queryKey: ["/api/programs"],
   });
+
+  // Set default selected program and revalidate when programs change
+  useEffect(() => {
+    if (programs.length === 0) {
+      setSelectedProgramId(null);
+      return;
+    }
+
+    // If no program is selected or the selected program no longer exists, select the first one
+    const selectedProgramExists = programs.some(p => p.id === selectedProgramId);
+    if (!selectedProgramId || !selectedProgramExists) {
+      setSelectedProgramId(programs[0].id);
+    }
+  }, [programs, selectedProgramId]);
 
   // Fetch full details for the selected program
   const { data: programData, isLoading: isProgramLoading } =
     useQuery<ProgramResponse>({
-      queryKey: ["/api/programs", selectedProgramId],
+      queryKey: ["/api/programs", selectedProgramId ?? programs?.[0]?.id],
       enabled: !!selectedProgramId,
     });
 
@@ -148,7 +166,27 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-
+        {isSuccess && programs.length === 0 && (
+          <div className="text-center py-16">
+            <div className="mb-4">
+              <Upload className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No programs yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Upload a program spreadsheet to get started
+              </p>
+            </div>
+            <Link href="/upload">
+              <Button
+                size="lg"
+                className="h-12 sm:h-11"
+                data-testid="button-upload-first"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Your First Program
+              </Button>
+            </Link>
+          </div>
+        )}
         {allWorkoutDays.length > 0 && (
           <>
             <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
@@ -220,27 +258,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {allWorkoutDays.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="mb-4">
-              <Upload className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No programs yet</h3>
-              <p className="text-muted-foreground mb-6">
-                Upload a program spreadsheet to get started
-              </p>
-            </div>
-            <Link href="/upload">
-              <Button
-                size="lg"
-                className="h-12 sm:h-11"
-                data-testid="button-upload-first"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Your First Program
-              </Button>
-            </Link>
-          </div>
-        ) : (
+        {allWorkoutDays.length > 0 && (
           <div className="space-y-6 sm:space-y-8">
             {programData?.phases.map((phase) => (
               <div key={phase.id} className="space-y-3 sm:space-y-4">

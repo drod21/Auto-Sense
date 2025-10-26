@@ -147,9 +147,9 @@ export default function SetLogger({
         {/* Set logging form */}
         {!isExerciseComplete ? (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
-                <Label htmlFor="weight">Weight (lbs)</Label>
+                <Label htmlFor="weight" className="text-sm font-medium">Weight (lbs)</Label>
                 <Input
                   id="weight"
                   type="number"
@@ -158,12 +158,12 @@ export default function SetLogger({
                   placeholder="0"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="text-lg font-mono"
+                  className="text-lg sm:text-xl font-mono h-12 sm:h-11 text-center"
                   data-testid="input-weight"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reps">Reps</Label>
+                <Label htmlFor="reps" className="text-sm font-medium">Reps</Label>
                 <div className="relative">
                   <Input
                     id="reps"
@@ -172,11 +172,11 @@ export default function SetLogger({
                     placeholder="0"
                     value={reps}
                     onChange={(e) => setReps(e.target.value)}
-                    className="text-lg font-mono"
+                    className="text-lg sm:text-xl font-mono h-12 sm:h-11 text-center pr-10"
                     data-testid="input-reps"
                   />
                   {reps && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       {getRepsStatus(parseInt(reps)) === "in-range" ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       ) : getRepsStatus(parseInt(reps)) === "out-of-range" ? (
@@ -186,8 +186,8 @@ export default function SetLogger({
                   )}
                 </div>
                 {targetRange.min > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Target: {exercise.reps} reps
+                  <p className="text-xs text-muted-foreground text-center">
+                    Target: {exercise.reps}
                   </p>
                 )}
               </div>
@@ -196,11 +196,11 @@ export default function SetLogger({
             {/* RPE Input */}
             {exercise.rpe && exercise.rpe !== "N/A" && (
               <div className="space-y-2">
-                <Label htmlFor="rpe" className="flex items-center gap-2">
+                <Label htmlFor="rpe" className="flex items-center gap-2 text-sm font-medium">
                   <Flame className="h-4 w-4" />
                   RPE (Rate of Perceived Exertion)
                 </Label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <Input
                     id="rpe"
                     type="number"
@@ -211,14 +211,14 @@ export default function SetLogger({
                     placeholder="1-10"
                     value={rpe}
                     onChange={(e) => setRpe(e.target.value)}
-                    className="text-lg font-mono max-w-24"
+                    className="text-lg sm:text-xl font-mono h-12 sm:h-11 text-center w-full sm:max-w-32"
                     data-testid="input-rpe"
                   />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground text-center sm:text-left">
                     Target: {exercise.rpe}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground text-center sm:text-left">
                   1 = Very easy, 10 = Maximum effort
                 </p>
               </div>
@@ -264,11 +264,11 @@ export default function SetLogger({
             <Separator />
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Completed Sets</h4>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {exerciseProgress.completedSets.map((set, index) => (
                   <div 
                     key={index} 
-                    className="flex items-center justify-between text-sm py-1"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 p-2 rounded-md bg-muted/30"
                     data-testid={`completed-set-${index}`}
                   >
                     <div className="flex items-center gap-2">
@@ -276,14 +276,14 @@ export default function SetLogger({
                         variant={set.isWarmup ? "secondary" : "default"}
                         className="text-xs"
                       >
-                        {set.isWarmup ? 'W' : 'W'}
+                        {set.isWarmup ? 'W' : 'S'}
                         {set.setNumber}
                       </Badge>
-                      <span className="font-mono">
+                      <span className="font-mono text-sm sm:text-base">
                         {set.weight} lbs × {set.reps} reps
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 ml-auto">
                       {set.rpe && (
                         <span className="text-xs text-muted-foreground font-mono">
                           RPE {set.rpe}

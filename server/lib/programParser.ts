@@ -219,18 +219,60 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
   }
   
   // Validate and fix exercise data
-  const validatedWorkoutDays = parsed.workoutDays.map((day: any) => ({
-    ...day,
-    exercises: day.exercises.map((exercise: any) => ({
-      ...exercise,
-      // Fix warmup sets - should be 0-5
-      warmupSets: validateWarmupSets(exercise.warmupSets),
-      // Fix working sets - should be 1-10
-      workingSets: validateWorkingSets(exercise.workingSets),
-      // Fix RPE - should be 1-10 or special strings
-      rpe: validateRPE(exercise.rpe),
-    })),
-  }));
+  const validatedWorkoutDays = parsed.workoutDays.map((day: any) => {
+    let exerciseOrder = 1;
+    const processedExercises: any[] = [];
+    
+    // Process exercises with proper ordering and superset grouping
+    for (let i = 0; i < day.exercises.length; i++) {
+      const exercise = day.exercises[i];
+      const nextExercise = day.exercises[i + 1];
+      
+      // Check if this exercise should be A1 (has a static stretch after it)
+      const isFollowedByStretch = nextExercise?.exerciseName?.includes('Static Stretch');
+      
+      // Check if this is a static stretch
+      const isStaticStretch = exercise.exerciseName?.includes('Static Stretch');
+      
+      // Determine superset group
+      let supersetGroup = exercise.supersetGroup;
+      
+      // If this exercise is followed by a stretch, make it A1
+      if (isFollowedByStretch && (!supersetGroup || supersetGroup === 'A')) {
+        supersetGroup = 'A1';
+      }
+      
+      // If this is a static stretch, make it A2
+      if (isStaticStretch) {
+        if (!supersetGroup || supersetGroup === 'A') {
+          supersetGroup = 'A2';
+        } else if (supersetGroup === 'B') {
+          supersetGroup = 'B2';
+        } else if (supersetGroup === 'C') {
+          supersetGroup = 'C2';
+        }
+      }
+      
+      processedExercises.push({
+        ...exercise,
+        // Fix warmup sets - should be 0-5
+        warmupSets: validateWarmupSets(exercise.warmupSets),
+        // Fix working sets - should be 1-10
+        workingSets: validateWorkingSets(exercise.workingSets),
+        // Fix RPE - should be 1-10 or special strings
+        rpe: validateRPE(exercise.rpe),
+        // Use sequential ordering
+        exerciseOrder: exerciseOrder++,
+        // Apply corrected superset group
+        supersetGroup: supersetGroup || null,
+      });
+    }
+    
+    return {
+      ...day,
+      exercises: processedExercises,
+    };
+  });
 
   return {
     phaseName: parsed.phaseName || sheetName,

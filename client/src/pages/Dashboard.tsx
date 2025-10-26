@@ -74,10 +74,12 @@ export default function Dashboard() {
   }, [programs, selectedProgramId]);
 
   // Fetch full details for the selected program
+  // Only fetch if the selected program exists in the current programs list
+  const selectedProgramExists = selectedProgramId && programs.some(p => p.id === selectedProgramId);
   const { data: programData, isLoading: isProgramLoading } =
     useQuery<ProgramResponse>({
-      queryKey: ["/api/programs", selectedProgramId ?? programs?.[0]?.id],
-      enabled: !!selectedProgramId,
+      queryKey: ["/api/programs", selectedProgramId],
+      enabled: !!selectedProgramId && selectedProgramExists,
     });
 
   // Delete program mutation
@@ -85,15 +87,26 @@ export default function Dashboard() {
     mutationFn: async (programId: string) => {
       return await apiRequest("DELETE", `/api/programs/${programId}`);
     },
-    onSuccess: (_, deletedProgramId) => {
-      // Close dialog and clear state first
+    onSuccess: async (_, deletedProgramId) => {
+      // Close dialog and clear state
       setDeleteDialogOpen(false);
       setProgramToDelete(null);
       
-      // Then invalidate queries and update selection
-      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      // Cancel any in-flight requests for the deleted program
+      await queryClient.cancelQueries({ queryKey: ["/api/programs", deletedProgramId] });
+      
+      // Remove the deleted program's detail query from cache
       queryClient.removeQueries({ queryKey: ["/api/programs", deletedProgramId] });
-      setSelectedProgramId(null);
+      
+      // Update the programs list cache directly to remove the deleted program
+      // This prevents the useEffect from running with stale data
+      queryClient.setQueryData<Program[]>(["/api/programs"], (oldData) => {
+        if (!oldData) return [];
+        return oldData.filter(p => p.id !== deletedProgramId);
+      });
+      
+      // Invalidate the programs list to trigger a refetch (which will confirm our optimistic update)
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
       
       // Show toast notification after UI updates
       setTimeout(() => {

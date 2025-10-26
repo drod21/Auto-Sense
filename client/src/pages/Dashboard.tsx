@@ -86,18 +86,22 @@ export default function Dashboard() {
       return await apiRequest("DELETE", `/api/programs/${programId}`);
     },
     onSuccess: (_, deletedProgramId) => {
-      // Invalidate the programs list query
-      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
-      // Remove the detail query for the deleted program
-      queryClient.removeQueries({ queryKey: ["/api/programs", deletedProgramId] });
-      // Clear the selected program so the useEffect will select a new one
-      setSelectedProgramId(null);
-      toast({
-        title: "Program deleted",
-        description: "The program has been successfully deleted.",
-      });
+      // Close dialog and clear state first
       setDeleteDialogOpen(false);
       setProgramToDelete(null);
+      
+      // Then invalidate queries and update selection
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      queryClient.removeQueries({ queryKey: ["/api/programs", deletedProgramId] });
+      setSelectedProgramId(null);
+      
+      // Show toast notification after UI updates
+      setTimeout(() => {
+        toast({
+          title: "Program deleted",
+          description: "The program has been successfully deleted.",
+        });
+      }, 100);
     },
     onError: (error) => {
       toast({

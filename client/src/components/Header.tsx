@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Dumbbell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Header() {
   const [location] = useLocation();
@@ -34,6 +35,7 @@ export default function Header() {
               Upload
             </Button>
           </Link>
+          <ThemeToggle />
         </nav>
       </div>
     </header>

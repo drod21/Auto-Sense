@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [
     react({
       babel: {
-        plugins: ["babel-plugin-react-compiler", { compilationMode: "infer" }],
+        plugins: [
+          ["babel-plugin-react-compiler", { compilationMode: "infer" }],
+        ],
       },
     }),
     runtimeErrorOverlay(),

@@ -47,7 +47,7 @@ export async function parseProgramSpreadsheet(
   // Extract program name from filename
   const programName = filename.replace(/\.(xlsx|xls|csv)$/i, '').replace(/_/g, ' ');
   
-  // Process each sheet as a phase
+  // Process each sheet as a phase - one at a time to avoid timeouts
   const phases: ParsedPhase[] = [];
   
   for (let i = 0; i < workbook.SheetNames.length; i++) {
@@ -55,9 +55,13 @@ export async function parseProgramSpreadsheet(
     const sheet = workbook.Sheets[sheetName];
     const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     
+    console.log(`Processing sheet ${i + 1}/${workbook.SheetNames.length}: ${sheetName}`);
+    
     // Use OpenAI to parse this phase
     const phase = await parsePhaseWithOpenAI(sheetName, sheetData, i + 1);
     phases.push(phase);
+    
+    console.log(`Completed sheet ${i + 1}: Found ${phase.workoutDays.length} workout days`);
   }
   
   return {
@@ -66,12 +70,27 @@ export async function parseProgramSpreadsheet(
   };
 }
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function parsePhaseWithOpenAI(
   sheetName: string,
   sheetData: any[][],
   phaseNumber: number
 ): Promise<ParsedPhase> {
-  const completion = await openai.chat.completions.create({
+  // Limit the amount of data sent to OpenAI - take first 100 rows
+  const limitedData = sheetData.slice(0, 100);
+  
+  // Retry logic for rate limits
+  let retries = 0;
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+  let parsed: any = null;
+  
+  while (retries < maxRetries) {
+    try {
+      const completion = await openai.chat.completions.create({
     model: "gpt-5",
     messages: [
       {
@@ -79,70 +98,117 @@ async function parsePhaseWithOpenAI(
         content: `You are an expert fitness coach analyzing workout program spreadsheets. Parse this workout phase and extract its structure.
 
 Your task:
-1. Extract the phase name and description
+1. Extract the phase name and description from the sheet
 2. Identify all workout days (e.g., "Push #1", "Pull #1", "Legs #1", etc.)
 3. For each workout day, extract all exercises with their details
-4. Recognize supersets (marked with A1/A2 or B1/B2 prefixes)
-5. Include rest days in the weekly schedule if apparent
+4. Recognize supersets (marked with A1/A2 or B1/B2 prefixes in exercise names)
+5. Add 1-2 rest days to complete a weekly schedule (PPL programs typically have 5-6 training days + 1-2 rest days)
 
-For each exercise, extract:
-- exerciseName: The exercise name (without superset prefixes)
-- warmupSets: Number of warmup sets (default 0)
-- workingSets: Number of working sets
-- reps: Rep prescription (keep as string, e.g., "8-10", "10+5", "30s HOLD")
-- load: Load prescription if specified (e.g., "75% 1RM")
-- rpe: RPE target (keep as string, can be number, "See Notes", or "N/A")
-- restTimer: Rest time between sets (keep as string, e.g., "~3-4 min", "0 min")
-- substitutionOption1: First substitution option
-- substitutionOption2: Second substitution option
-- notes: Exercise notes/cues
-- supersetGroup: Superset identifier if applicable (e.g., "A1", "A2", "B1", "B2")
-- exerciseOrder: Order in the workout (1, 2, 3, etc.)
+IMPORTANT PARSING RULES:
+- Column headers usually include: "Exercise", "Warm-up Sets", "Working Sets", "Reps", "Load", "RPE", "Rest", "Substitution Option"
+- Each row with a new day name (like "Push #1", "Pull #1") starts a new workout day
+- Exercises under a day belong to that workout day until the next day starts
+- If an exercise name starts with "A1.", "A2.", "B1.", etc., extract that as the supersetGroup
+- For reps, keep as string (e.g., "8-10", "10+5", "30s HOLD")
+- For RPE, keep as string (can be number, "See Notes", or "N/A")
+- For rest timer, keep as string (e.g., "~3-4 min", "0 min", "~1-2 min")
+- Give each exercise an exerciseOrder number (1, 2, 3, etc.) within its workout day
 
-Return a JSON object with:
+Return a JSON object:
 {
-  "phaseName": "Phase name",
-  "description": "Phase description",
+  "phaseName": "Phase 1 - Base Hypertrophy",
+  "description": "Moderate Volume, Moderate Intensity",
   "workoutDays": [
     {
-      "dayName": "Push #1" | "Pull #1" | "Legs #1" | "REST",
+      "dayName": "Push #1",
       "dayNumber": 1,
       "isRestDay": false,
       "weekNumber": 1,
-      "exercises": [ ... ]
+      "exercises": [
+        {
+          "exerciseName": "Bench Press",
+          "warmupSets": 2,
+          "workingSets": 3,
+          "reps": "8-10",
+          "load": null,
+          "rpe": "8",
+          "restTimer": "~3-4 min",
+          "substitutionOption1": "DB Bench Press",
+          "substitutionOption2": "Machine Chest Press",
+          "notes": "Keep shoulder blades retracted",
+          "supersetGroup": null,
+          "exerciseOrder": 1
+        }
+      ]
+    },
+    {
+      "dayName": "REST",
+      "dayNumber": 7,
+      "isRestDay": true,
+      "weekNumber": 1,
+      "exercises": []
     }
   ]
-}
-
-IMPORTANT: 
-- If the program has 5-6 workout days per week, suggest adding 1-2 rest days
-- Typical patterns: Push/Pull/Legs/Push/Pull/REST/REST or Push/Pull/REST/Legs/Push/Pull/REST
-- Keep all text values exactly as they appear (don't convert to numbers unless absolutely necessary)`,
+}`,
       },
       {
         role: "user",
         content: `Parse this workout phase. Sheet name: "${sheetName}"
 
-Sheet data:
-${JSON.stringify(sheetData, null, 2)}
+First 100 rows of sheet data:
+${JSON.stringify(limitedData, null, 2)}
 
-Return the parsed phase structure as JSON.`,
+Return the parsed phase structure as JSON. Include suggested rest days to complete a 7-day week.`,
       },
     ],
     response_format: { type: "json_object" },
-  });
+      });
 
-  const content = completion.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("No response from OpenAI");
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      parsed = JSON.parse(content);
+      
+      // Success! Exit the retry loop
+      break;
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if it's a rate limit error
+      if (error?.status === 429 && retries < maxRetries - 1) {
+        retries++;
+        const waitTime = Math.pow(2, retries) * 1000; // Exponential backoff: 2s, 4s, 8s
+        console.log(`Rate limit hit on sheet "${sheetName}". Retrying in ${waitTime/1000}s... (attempt ${retries}/${maxRetries})`);
+        await sleep(waitTime);
+        continue;
+      }
+      
+      // Not a rate limit or out of retries
+      throw error;
+    }
   }
-
-  const parsed = JSON.parse(content);
+  
+  if (!parsed) {
+    throw lastError || new Error("Failed to parse sheet after retries");
+  }
+  
+  // Ensure we have valid data
+  if (!parsed.workoutDays || !Array.isArray(parsed.workoutDays)) {
+    console.warn(`No workout days found in sheet: ${sheetName}`);
+    return {
+      phaseName: sheetName,
+      phaseNumber,
+      description: parsed.description || null,
+      workoutDays: [],
+    };
+  }
   
   return {
     phaseName: parsed.phaseName || sheetName,
     phaseNumber,
-    description: parsed.description,
-    workoutDays: parsed.workoutDays || [],
+    description: parsed.description || null,
+    workoutDays: parsed.workoutDays,
   };
 }

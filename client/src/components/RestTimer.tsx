@@ -154,22 +154,22 @@ export default function RestTimer({
 
   return (
     <Card className="border-primary/50">
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-3 sm:pb-4">
         <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Timer className="h-5 w-5 animate-pulse" />
+          <span className="flex items-center gap-2 text-base sm:text-lg">
+            <Timer className="h-4 w-4 sm:h-5 sm:w-5 animate-pulse" />
             Rest Timer
           </span>
-          <Bell className="h-5 w-5 text-muted-foreground" />
+          <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Time display */}
         <div className="text-center">
-          <p className="text-6xl font-bold font-mono tracking-wider" data-testid="timer-display">
+          <p className="text-5xl sm:text-6xl lg:text-7xl font-bold font-mono tracking-wider" data-testid="timer-display">
             {formatTime(timeRemaining)}
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
             {isPaused ? 'Paused' : 'Rest between sets'}
           </p>
         </div>
@@ -177,26 +177,27 @@ export default function RestTimer({
         {/* Progress bar */}
         <Progress 
           value={progressPercentage} 
-          className="h-3"
+          className="h-3 sm:h-4"
           data-testid="timer-progress"
         />
 
         {/* Control buttons */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <Button
             variant="outline"
             size="lg"
+            className="h-12 sm:h-11"
             onClick={togglePause}
             data-testid="button-pause-timer"
           >
             {isPaused ? (
               <>
-                <Play className="h-4 w-4 mr-2" />
+                <Play className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Resume
               </>
             ) : (
               <>
-                <Pause className="h-4 w-4 mr-2" />
+                <Pause className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Pause
               </>
             )}
@@ -205,41 +206,45 @@ export default function RestTimer({
           <Button
             variant="outline"
             size="lg"
+            className="h-12 sm:h-11"
             onClick={onSkip}
             data-testid="button-skip-timer"
           >
-            <SkipForward className="h-4 w-4 mr-2" />
+            <SkipForward className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             Skip
           </Button>
         </div>
 
         {/* Add time buttons */}
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-1 sm:gap-2">
           <Button
             variant="ghost"
             size="sm"
+            className="h-10 sm:h-9"
             onClick={() => addTime(30)}
             data-testid="button-add-30s"
           >
-            <Plus className="h-3 w-3 mr-1" />
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             30s
           </Button>
           <Button
             variant="ghost"
             size="sm"
+            className="h-10 sm:h-9"
             onClick={() => addTime(60)}
             data-testid="button-add-60s"
           >
-            <Plus className="h-3 w-3 mr-1" />
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             1m
           </Button>
           <Button
             variant="ghost"
             size="sm"
+            className="h-10 sm:h-9"
             onClick={() => addTime(120)}
             data-testid="button-add-120s"
           >
-            <Plus className="h-3 w-3 mr-1" />
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             2m
           </Button>
         </div>

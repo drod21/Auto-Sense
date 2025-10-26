@@ -119,6 +119,12 @@ IMPORTANT PARSING RULES:
 - For rest timer, keep as string (e.g., "~3-4 min", "0 min", "~1-2 min")
 - Give each exercise an exerciseOrder number (1, 2, 3, etc.) within its workout day
 
+CRITICAL VALUE RANGES - DO NOT USE VALUES OUTSIDE THESE RANGES:
+- warmupSets: MUST be between 0-5 (typically 0-3). NEVER use large numbers like 44624!
+- workingSets: MUST be between 1-10 (typically 1-5)
+- rpe: MUST be between 1-10 or special values like "See Notes", "N/A". NEVER use numbers above 10 or large numbers like 44782!
+- If you see date serial numbers (like 44624, 44782) in cells, these are Excel date formatting errors - ignore them and use reasonable workout values instead
+
 Return a JSON object:
 {
   "phaseName": "Phase 1 - Base Hypertrophy",
@@ -212,10 +218,89 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
     };
   }
   
+  // Validate and fix exercise data
+  const validatedWorkoutDays = parsed.workoutDays.map((day: any) => ({
+    ...day,
+    exercises: day.exercises.map((exercise: any) => ({
+      ...exercise,
+      // Fix warmup sets - should be 0-5
+      warmupSets: validateWarmupSets(exercise.warmupSets),
+      // Fix working sets - should be 1-10
+      workingSets: validateWorkingSets(exercise.workingSets),
+      // Fix RPE - should be 1-10 or special strings
+      rpe: validateRPE(exercise.rpe),
+    })),
+  }));
+
   return {
     phaseName: parsed.phaseName || sheetName,
     phaseNumber,
     description: parsed.description || null,
-    workoutDays: parsed.workoutDays,
+    workoutDays: validatedWorkoutDays,
   };
+}
+
+// Validation functions to fix bad data
+function validateWarmupSets(value: any): number {
+  const num = parseInt(value);
+  // If it's a huge number (likely Excel date), default to 2
+  if (num > 100) {
+    console.warn(`Invalid warmup sets value ${value}, defaulting to 2`);
+    return 2;
+  }
+  // Clamp to reasonable range
+  if (num < 0) return 0;
+  if (num > 5) return 5;
+  return num || 0;
+}
+
+function validateWorkingSets(value: any): number {
+  const num = parseInt(value);
+  // If it's a huge number (likely Excel date), default to 3
+  if (num > 100) {
+    console.warn(`Invalid working sets value ${value}, defaulting to 3`);
+    return 3;
+  }
+  // Clamp to reasonable range
+  if (num < 1) return 1;
+  if (num > 10) return 10;
+  return num || 3;
+}
+
+function validateRPE(value: any): string {
+  if (!value) return "N/A";
+  
+  // Handle string values
+  if (typeof value === 'string') {
+    // Keep special values
+    if (value.toLowerCase().includes('see notes') || value.toLowerCase() === 'n/a') {
+      return value;
+    }
+    // Try to extract a number
+    const match = value.match(/\d+(\.\d+)?/);
+    if (match) {
+      const num = parseFloat(match[0]);
+      if (num >= 1 && num <= 10) {
+        return num.toString();
+      }
+    }
+  }
+  
+  // Handle numeric values
+  const num = parseFloat(value);
+  if (!isNaN(num)) {
+    // If it's a huge number (likely Excel date), default to 8
+    if (num > 100) {
+      console.warn(`Invalid RPE value ${value}, defaulting to 8`);
+      return "8";
+    }
+    // Clamp to valid range
+    if (num >= 1 && num <= 10) {
+      return num.toString();
+    }
+  }
+  
+  // Default to 8 if nothing else works
+  console.warn(`Invalid RPE value ${value}, defaulting to 8`);
+  return "8";
 }

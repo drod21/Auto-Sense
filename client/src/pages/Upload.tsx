@@ -24,7 +24,8 @@ export default function Upload() {
             Don't have a spreadsheet? Download our sample template
           </p>
           <Button 
-            variant="outline" 
+            variant="outline"
+            className="h-11" 
             onClick={() => console.log("Download sample template")}
             data-testid="button-download-sample"
           >

@@ -25,7 +25,7 @@ export default function Header() {
             <Link href="/">
               <Button 
                 variant={location === "/" ? "secondary" : "ghost"}
-                size="default"
+                className="h-11"
                 data-testid="link-dashboard"
               >
                 Dashboard
@@ -34,7 +34,7 @@ export default function Header() {
             <Link href="/upload">
               <Button 
                 variant={location === "/upload" ? "secondary" : "ghost"}
-                size="default"
+                className="h-11"
                 data-testid="link-upload"
               >
                 Upload

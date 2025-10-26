@@ -146,13 +146,11 @@ export default function Dashboard() {
               </div>
 
               <Link href="/upload">
-                <a className="w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto h-11 sm:h-10" data-testid="button-new-upload">
-                    <Upload className="w-4 h-4 mr-2" />
-                    <span className="sm:hidden">Upload</span>
-                    <span className="hidden sm:inline">Upload New Program</span>
-                  </Button>
-                </a>
+                <Button className="w-full sm:w-auto h-11 sm:h-10" data-testid="button-new-upload">
+                  <Upload className="w-4 h-4 mr-2" />
+                  <span className="sm:hidden">Upload</span>
+                  <span className="hidden sm:inline">Upload New Program</span>
+                </Button>
               </Link>
             </div>
           </>
@@ -166,12 +164,10 @@ export default function Dashboard() {
               <p className="text-muted-foreground mb-6">Upload a program spreadsheet to get started</p>
             </div>
             <Link href="/upload">
-              <a>
-                <Button size="lg" className="h-11 sm:h-11" data-testid="button-upload-first">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Your First Program
-                </Button>
-              </a>
+              <Button size="lg" className="h-12 sm:h-11" data-testid="button-upload-first">
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Your First Program
+              </Button>
             </Link>
           </div>
         ) : (

@@ -52,7 +52,7 @@ export async function parseProgramSpreadsheet(
   // Process all sheets in parallel for maximum speed
   const phasePromises = workbook.SheetNames.map((sheetName, i) => {
     const sheet = workbook.Sheets[sheetName];
-    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
     
     console.log(`Processing sheet ${i + 1}/${workbook.SheetNames.length}: ${sheetName}`);
     

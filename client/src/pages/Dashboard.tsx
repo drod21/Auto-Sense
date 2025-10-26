@@ -138,7 +138,7 @@ export default function Dashboard() {
                 <Input
                   type="search"
                   placeholder="Search workouts..."
-                  className="pl-9 h-10 sm:h-9"
+                  className="pl-9 h-11 sm:h-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   data-testid="input-search"
@@ -147,7 +147,7 @@ export default function Dashboard() {
 
               <Link href="/upload">
                 <a className="w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto h-10 sm:h-9" data-testid="button-new-upload">
+                  <Button className="w-full sm:w-auto h-11 sm:h-10" data-testid="button-new-upload">
                     <Upload className="w-4 h-4 mr-2" />
                     <span className="sm:hidden">Upload</span>
                     <span className="hidden sm:inline">Upload New Program</span>
@@ -167,7 +167,7 @@ export default function Dashboard() {
             </div>
             <Link href="/upload">
               <a>
-                <Button size="lg" data-testid="button-upload-first">
+                <Button size="lg" className="h-11 sm:h-11" data-testid="button-upload-first">
                   <Upload className="w-4 h-4 mr-2" />
                   Upload Your First Program
                 </Button>

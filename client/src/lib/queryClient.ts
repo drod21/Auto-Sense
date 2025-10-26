@@ -24,11 +24,25 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
+
+// Default query function for handling API requests
+const defaultQueryFn: QueryFunction = async ({ queryKey }) => {
+  const res = await fetch(queryKey.join("/") as string, {
+    credentials: "include",
+  });
+
+  // For the default behavior, we throw on 401
+  await throwIfResNotOk(res);
+  return await res.json();
+};
+
+// Helper function to create query functions with different unauthorized behaviors
+export function getQueryFn<T>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
+}): QueryFunction<T> {
+  const { on401: unauthorizedBehavior } = options;
+  
+  return async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
     });
@@ -40,11 +54,12 @@ export const getQueryFn: <T>(options: {
     await throwIfResNotOk(res);
     return await res.json();
   };
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: defaultQueryFn,
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,

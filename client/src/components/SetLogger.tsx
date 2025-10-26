@@ -227,7 +227,7 @@ export default function SetLogger({
             <Button 
               type="submit" 
               size="lg" 
-              className="w-full"
+              className="w-full h-12 sm:h-11"
               disabled={
                 !weight || 
                 !reps || 
@@ -250,7 +250,7 @@ export default function SetLogger({
             <Button 
               onClick={onExerciseComplete}
               size="lg"
-              className="w-full"
+              className="w-full h-12 sm:h-11"
               data-testid="button-next-exercise"
             >
               Continue to Next Exercise

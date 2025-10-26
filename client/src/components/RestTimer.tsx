@@ -220,7 +220,7 @@ export default function RestTimer({
           <Button
             variant="ghost"
             size="sm"
-            className="h-10 sm:h-9"
+            className="h-11 sm:h-10"
             onClick={() => addTime(30)}
             data-testid="button-add-30s"
           >
@@ -230,7 +230,7 @@ export default function RestTimer({
           <Button
             variant="ghost"
             size="sm"
-            className="h-10 sm:h-9"
+            className="h-11 sm:h-10"
             onClick={() => addTime(60)}
             data-testid="button-add-60s"
           >
@@ -240,7 +240,7 @@ export default function RestTimer({
           <Button
             variant="ghost"
             size="sm"
-            className="h-10 sm:h-9"
+            className="h-11 sm:h-10"
             onClick={() => addTime(120)}
             data-testid="button-add-120s"
           >

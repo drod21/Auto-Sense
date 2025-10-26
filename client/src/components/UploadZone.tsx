@@ -133,8 +133,8 @@ export default function UploadZone({ onFileSelect }: UploadZoneProps) {
               <Upload className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground" />
             </div>
             <h3 className="text-lg sm:text-xl font-semibold mb-2">
-              <span className="hidden sm:inline">Drop spreadsheet here</span>
-              <span className="sm:hidden">Upload your workout</span>
+              <span className="hidden sm:block">Drop spreadsheet here</span>
+              <span className="block sm:hidden">Upload your workout</span>
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
               Supports CSV and Excel files (.csv, .xlsx, .xls)

@@ -78,6 +78,7 @@ Preferred communication style: Simple, everyday language.
 - Response schema includes: phase info, workout days (with day names, numbers, rest day flags), and exercises (with name, sets, reps, RPE, rest timers, substitution options, superset grouping)
 - Parallel processing of all sheets for maximum performance
 - Error handling for malformed AI responses with retry logic for rate limits
+- **Data Validation:** Built-in validation ensures warmup sets (0-5 range), working sets (1-10 range), and RPE (1-10 or special values) are within reasonable workout ranges. Automatically fixes Excel date serial numbers that may be misinterpreted as exercise values
 
 ### External Dependencies
 

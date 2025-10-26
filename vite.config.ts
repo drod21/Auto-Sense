@@ -4,7 +4,7 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const reactCompilerConfig = {
-  compilationMode: "all",
+  compilationMode: "infer",
   logger: {
     panicThreshold: "none", // Skip components with errors instead of failing the build,
     logEvent(filename: any, event: any) {

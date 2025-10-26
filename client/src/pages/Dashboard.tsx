@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,19 @@ export default function Dashboard() {
     queryKey: ["/api/programs"],
   });
 
-  // Set default selected program when programs are loaded
-  if (programs.length > 0 && !selectedProgramId) {
-    setSelectedProgramId(programs[0].id);
-  }
+  // Set default selected program and revalidate when programs change
+  useEffect(() => {
+    if (programs.length === 0) {
+      setSelectedProgramId(null);
+      return;
+    }
+
+    // If no program is selected or the selected program no longer exists, select the first one
+    const selectedProgramExists = programs.some(p => p.id === selectedProgramId);
+    if (!selectedProgramId || !selectedProgramExists) {
+      setSelectedProgramId(programs[0].id);
+    }
+  }, [programs]);
 
   // Fetch full details for the selected program
   const { data: programData, isLoading: isProgramLoading } = useQuery<ProgramResponse>({

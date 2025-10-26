@@ -66,12 +66,12 @@ export default function UploadZone({ onFileSelect }: UploadZoneProps) {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("name", file.name.replace(/\.(csv|xlsx|xls)$/i, ''));
+      formData.append("workoutName", file.name.replace(/\.(csv|xlsx|xls)$/i, ''));
 
       setProgress(100);
       setUploadState("parsing");
 
-      const response = await fetch("/api/workouts/upload", {
+      const response = await fetch("/api/programs/upload", {
         method: "POST",
         body: formData,
       });
@@ -84,12 +84,12 @@ export default function UploadZone({ onFileSelect }: UploadZoneProps) {
       }
 
       const data = await response.json();
-      setExerciseCount(data.exercises.length);
+      setExerciseCount(data.totalExercises || 0);
       setUploadState("success");
 
       toast({
         title: "Upload successful!",
-        description: `Found ${data.exercises.length} exercises in your workout plan.`,
+        description: data.message || `Found ${data.totalExercises} exercises in ${data.phases?.length || 0} phases.`,
       });
 
       // Redirect to dashboard after 2 seconds

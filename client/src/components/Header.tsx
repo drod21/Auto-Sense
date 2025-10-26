@@ -17,24 +17,26 @@ export default function Header() {
 
         <nav className="flex items-center gap-2">
           <Link href="/">
-            <button data-testid="link-dashboard" className="p-0 border-0 bg-transparent">
+            <a>
               <Button 
                 variant={location === "/" ? "secondary" : "ghost"}
                 size="default"
+                data-testid="link-dashboard"
               >
                 Dashboard
               </Button>
-            </button>
+            </a>
           </Link>
           <Link href="/upload">
-            <button data-testid="link-upload" className="p-0 border-0 bg-transparent">
+            <a>
               <Button 
                 variant={location === "/upload" ? "secondary" : "ghost"}
                 size="default"
+                data-testid="link-upload"
               >
                 Upload
               </Button>
-            </button>
+            </a>
           </Link>
         </nav>
       </div>

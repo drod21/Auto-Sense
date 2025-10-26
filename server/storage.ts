@@ -1,88 +1,111 @@
-import { type Workout, type InsertWorkout, type Exercise, type InsertExercise } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { 
+  type Program, type InsertProgram, programs,
+  type Phase, type InsertPhase, phases,
+  type WorkoutDay, type InsertWorkoutDay, workoutDays,
+  type Exercise, type InsertExercise, exercises
+} from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getWorkout(id: string): Promise<Workout | undefined>;
-  getAllWorkouts(): Promise<Workout[]>;
-  createWorkout(workout: InsertWorkout): Promise<Workout>;
+  // Program methods
+  getProgram(id: string): Promise<Program | undefined>;
+  getAllPrograms(): Promise<Program[]>;
+  createProgram(program: InsertProgram): Promise<Program>;
   
+  // Phase methods
+  getPhase(id: string): Promise<Phase | undefined>;
+  getPhasesByProgramId(programId: string): Promise<Phase[]>;
+  createPhase(phase: InsertPhase): Promise<Phase>;
+  
+  // Workout Day methods
+  getWorkoutDay(id: string): Promise<WorkoutDay | undefined>;
+  getWorkoutDaysByPhaseId(phaseId: string): Promise<WorkoutDay[]>;
+  createWorkoutDay(workoutDay: InsertWorkoutDay): Promise<WorkoutDay>;
+  
+  // Exercise methods
   getExercise(id: string): Promise<Exercise | undefined>;
-  getExercisesByWorkoutId(workoutId: string): Promise<Exercise[]>;
+  getExercisesByWorkoutDayId(workoutDayId: string): Promise<Exercise[]>;
+  getAllExercises(): Promise<Exercise[]>;
   createExercise(exercise: InsertExercise): Promise<Exercise>;
   updateExercise(id: string, exercise: Partial<InsertExercise>): Promise<Exercise | undefined>;
   deleteExercise(id: string): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private workouts: Map<string, Workout>;
-  private exercises: Map<string, Exercise>;
-
-  constructor() {
-    this.workouts = new Map();
-    this.exercises = new Map();
+export class DbStorage implements IStorage {
+  // Program methods
+  async getProgram(id: string): Promise<Program | undefined> {
+    const result = await db.select().from(programs).where(eq(programs.id, id)).limit(1);
+    return result[0];
   }
 
-  async getWorkout(id: string): Promise<Workout | undefined> {
-    return this.workouts.get(id);
+  async getAllPrograms(): Promise<Program[]> {
+    return await db.select().from(programs);
   }
 
-  async getAllWorkouts(): Promise<Workout[]> {
-    return Array.from(this.workouts.values());
+  async createProgram(insertProgram: InsertProgram): Promise<Program> {
+    const result = await db.insert(programs).values(insertProgram).returning();
+    return result[0];
   }
 
-  async createWorkout(insertWorkout: InsertWorkout): Promise<Workout> {
-    const id = randomUUID();
-    const workout: Workout = { ...insertWorkout, id };
-    this.workouts.set(id, workout);
-    return workout;
+  // Phase methods
+  async getPhase(id: string): Promise<Phase | undefined> {
+    const result = await db.select().from(phases).where(eq(phases.id, id)).limit(1);
+    return result[0];
   }
 
+  async getPhasesByProgramId(programId: string): Promise<Phase[]> {
+    return await db.select().from(phases).where(eq(phases.programId, programId));
+  }
+
+  async createPhase(insertPhase: InsertPhase): Promise<Phase> {
+    const result = await db.insert(phases).values(insertPhase).returning();
+    return result[0];
+  }
+
+  // Workout Day methods
+  async getWorkoutDay(id: string): Promise<WorkoutDay | undefined> {
+    const result = await db.select().from(workoutDays).where(eq(workoutDays.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getWorkoutDaysByPhaseId(phaseId: string): Promise<WorkoutDay[]> {
+    return await db.select().from(workoutDays).where(eq(workoutDays.phaseId, phaseId));
+  }
+
+  async createWorkoutDay(insertWorkoutDay: InsertWorkoutDay): Promise<WorkoutDay> {
+    const result = await db.insert(workoutDays).values(insertWorkoutDay).returning();
+    return result[0];
+  }
+
+  // Exercise methods
   async getExercise(id: string): Promise<Exercise | undefined> {
-    return this.exercises.get(id);
+    const result = await db.select().from(exercises).where(eq(exercises.id, id)).limit(1);
+    return result[0];
   }
 
-  async getExercisesByWorkoutId(workoutId: string): Promise<Exercise[]> {
-    return Array.from(this.exercises.values()).filter(
-      (exercise) => exercise.workoutId === workoutId
-    );
+  async getExercisesByWorkoutDayId(workoutDayId: string): Promise<Exercise[]> {
+    return await db.select().from(exercises).where(eq(exercises.workoutDayId, workoutDayId));
+  }
+
+  async getAllExercises(): Promise<Exercise[]> {
+    return await db.select().from(exercises);
   }
 
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
-    const id = randomUUID();
-    const exercise: Exercise = { 
-      id,
-      workoutId: insertExercise.workoutId,
-      exerciseName: insertExercise.exerciseName,
-      alternateExercise: insertExercise.alternateExercise ?? null,
-      sets: insertExercise.sets,
-      warmupSets: insertExercise.warmupSets ?? null,
-      restTimer: insertExercise.restTimer,
-      rpe: insertExercise.rpe ?? null,
-      repRangeMin: insertExercise.repRangeMin,
-      repRangeMax: insertExercise.repRangeMax,
-    };
-    this.exercises.set(id, exercise);
-    return exercise;
+    const result = await db.insert(exercises).values(insertExercise).returning();
+    return result[0];
   }
 
   async updateExercise(id: string, updates: Partial<InsertExercise>): Promise<Exercise | undefined> {
-    const exercise = this.exercises.get(id);
-    if (!exercise) return undefined;
-    
-    const updated: Exercise = { 
-      ...exercise, 
-      ...updates,
-      alternateExercise: updates.alternateExercise !== undefined ? updates.alternateExercise : exercise.alternateExercise,
-      warmupSets: updates.warmupSets !== undefined ? updates.warmupSets : exercise.warmupSets,
-      rpe: updates.rpe !== undefined ? updates.rpe : exercise.rpe,
-    };
-    this.exercises.set(id, updated);
-    return updated;
+    const result = await db.update(exercises).set(updates).where(eq(exercises.id, id)).returning();
+    return result[0];
   }
 
   async deleteExercise(id: string): Promise<boolean> {
-    return this.exercises.delete(id);
+    const result = await db.delete(exercises).where(eq(exercises.id, id)).returning();
+    return result.length > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DbStorage();

@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
-import { parseSpreadsheet } from "./lib/parser";
-import { insertWorkoutSchema, insertExerciseSchema } from "@shared/schema";
+import { parseProgramSpreadsheet } from "./lib/programParser";
+import { insertProgramSchema, insertPhaseSchema, insertWorkoutDaySchema, insertExerciseSchema } from "@shared/schema";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -23,46 +23,91 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Upload and parse workout spreadsheet
-  app.post("/api/workouts/upload", upload.single("file"), async (req, res) => {
+  // Upload and parse program spreadsheet
+  app.post("/api/programs/upload", upload.single("file"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const workoutName = req.body.name || req.file.originalname.replace(/\.(csv|xlsx|xls)$/i, '');
+      const programName = req.body.workoutName || req.file.originalname.replace(/\.(csv|xlsx|xls)$/i, '');
       
-      // Create workout record
-      const workout = await storage.createWorkout({
-        name: workoutName,
-        uploadDate: new Date().toISOString(),
-      });
-
-      // Parse the file and extract exercises
-      const parsedExercises = await parseSpreadsheet(
+      // Parse the entire program structure
+      const parsedProgram = await parseProgramSpreadsheet(
         req.file.buffer,
-        req.file.originalname,
-        workout.id
+        programName
       );
 
-      // Validate each exercise before storing
-      const validatedExercises = parsedExercises.map(ex => {
-        const result = insertExerciseSchema.safeParse(ex);
-        if (!result.success) {
-          console.error("Validation error for exercise:", ex, result.error);
-          throw new Error(`Invalid exercise data: ${result.error.message}`);
-        }
-        return result.data;
+      // Create program record
+      const program = await storage.createProgram({
+        name: parsedProgram.programName,
+        uploadDate: new Date().toISOString(),
+        description: parsedProgram.description || null,
       });
 
-      // Store all exercises
-      const exercises = await Promise.all(
-        validatedExercises.map(ex => storage.createExercise(ex))
-      );
+      // Create phases, workout days, and exercises
+      let totalExercises = 0;
+      const createdPhases = [];
+
+      for (const parsedPhase of parsedProgram.phases) {
+        // Create phase
+        const phase = await storage.createPhase({
+          programId: program.id,
+          name: parsedPhase.phaseName,
+          phaseNumber: parsedPhase.phaseNumber,
+          description: parsedPhase.description || null,
+        });
+
+        createdPhases.push(phase);
+
+        // Create workout days and exercises
+        for (const parsedDay of parsedPhase.workoutDays) {
+          const workoutDay = await storage.createWorkoutDay({
+            phaseId: phase.id,
+            dayName: parsedDay.dayName,
+            dayNumber: parsedDay.dayNumber,
+            isRestDay: parsedDay.isRestDay,
+            weekNumber: parsedDay.weekNumber || 1,
+          });
+
+          // Create exercises for this workout day (skip if rest day)
+          if (!parsedDay.isRestDay && parsedDay.exercises) {
+            for (const parsedExercise of parsedDay.exercises) {
+              const exerciseData = {
+                workoutDayId: workoutDay.id,
+                exerciseName: parsedExercise.exerciseName,
+                warmupSets: parsedExercise.warmupSets || 0,
+                workingSets: parsedExercise.workingSets,
+                reps: parsedExercise.reps,
+                load: parsedExercise.load || null,
+                rpe: parsedExercise.rpe || null,
+                restTimer: parsedExercise.restTimer || null,
+                substitutionOption1: parsedExercise.substitutionOption1 || null,
+                substitutionOption2: parsedExercise.substitutionOption2 || null,
+                notes: parsedExercise.notes || null,
+                supersetGroup: parsedExercise.supersetGroup || null,
+                exerciseOrder: parsedExercise.exerciseOrder,
+              };
+
+              // Validate before storing
+              const result = insertExerciseSchema.safeParse(exerciseData);
+              if (!result.success) {
+                console.error("Validation error for exercise:", exerciseData, result.error);
+                throw new Error(`Invalid exercise data: ${result.error.message}`);
+              }
+
+              await storage.createExercise(result.data);
+              totalExercises++;
+            }
+          }
+        }
+      }
 
       res.json({
-        workout,
-        exercises,
+        program,
+        phases: createdPhases,
+        totalExercises,
+        message: `Successfully parsed ${parsedProgram.phases.length} phases with ${totalExercises} total exercises`,
       });
     } catch (error) {
       console.error("Upload error:", error);
@@ -72,41 +117,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all workouts
-  app.get("/api/workouts", async (req, res) => {
+  // Get all programs
+  app.get("/api/programs", async (req, res) => {
     try {
-      const workouts = await storage.getAllWorkouts();
-      res.json(workouts);
+      const programs = await storage.getAllPrograms();
+      res.json(programs);
     } catch (error) {
-      console.error("Error fetching workouts:", error);
-      res.status(500).json({ error: "Failed to fetch workouts" });
+      console.error("Error fetching programs:", error);
+      res.status(500).json({ error: "Failed to fetch programs" });
     }
   });
 
-  // Get workout by ID with exercises
-  app.get("/api/workouts/:id", async (req, res) => {
+  // Get program by ID with full structure
+  app.get("/api/programs/:id", async (req, res) => {
     try {
-      const workout = await storage.getWorkout(req.params.id);
-      if (!workout) {
-        return res.status(404).json({ error: "Workout not found" });
+      const program = await storage.getProgram(req.params.id);
+      if (!program) {
+        return res.status(404).json({ error: "Program not found" });
       }
 
-      const exercises = await storage.getExercisesByWorkoutId(req.params.id);
-      res.json({ workout, exercises });
+      const phases = await storage.getPhasesByProgramId(req.params.id);
+      
+      // Get workout days and exercises for each phase
+      const phasesWithDays = await Promise.all(
+        phases.map(async (phase) => {
+          const workoutDays = await storage.getWorkoutDaysByPhaseId(phase.id);
+          
+          const daysWithExercises = await Promise.all(
+            workoutDays.map(async (day) => {
+              const exercises = await storage.getExercisesByWorkoutDayId(day.id);
+              return { ...day, exercises };
+            })
+          );
+          
+          return { ...phase, workoutDays: daysWithExercises };
+        })
+      );
+
+      res.json({ program, phases: phasesWithDays });
     } catch (error) {
-      console.error("Error fetching workout:", error);
-      res.status(500).json({ error: "Failed to fetch workout" });
+      console.error("Error fetching program:", error);
+      res.status(500).json({ error: "Failed to fetch program" });
     }
   });
 
-  // Get all exercises (for dashboard)
+  // Get all exercises (for dashboard - backward compatibility)
   app.get("/api/exercises", async (req, res) => {
     try {
-      const workouts = await storage.getAllWorkouts();
-      const allExercises = await Promise.all(
-        workouts.map(w => storage.getExercisesByWorkoutId(w.id))
-      );
-      const exercises = allExercises.flat();
+      const exercises = await storage.getAllExercises();
       res.json(exercises);
     } catch (error) {
       console.error("Error fetching exercises:", error);

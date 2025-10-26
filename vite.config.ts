@@ -6,7 +6,6 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 const reactCompilerConfig = {
   compilationMode: "infer",
   logger: {
-    panicThreshold: "none", // Skip components with errors instead of failing the build,
     logEvent(filename: any, event: any) {
       if (event.kind === "CompileSuccess") {
         console.log("Compiled:", filename);

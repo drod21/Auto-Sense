@@ -185,81 +185,82 @@ export default function WorkoutTracker() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background border-b">
-        <div className="max-w-4xl mx-auto p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <div className="max-w-4xl mx-auto p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link href="/">
                 <a>
                   <Button 
                     variant="ghost" 
                     size="icon"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
                     data-testid="button-exit-workout"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 </a>
               </Link>
-              <div>
-                <h1 className="text-xl font-bold">{workoutData.dayName}</h1>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-base sm:text-xl font-bold truncate">{workoutData.dayName}</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Exercise {session.currentExerciseIndex + 1} of {totalExercises}
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="font-mono">
-              {Math.round(progressPercentage)}% Complete
+            <Badge variant="outline" className="font-mono text-xs sm:text-sm">
+              {Math.round(progressPercentage)}%
             </Badge>
           </div>
           
           {/* Progress bar */}
-          <Progress value={progressPercentage} className="mt-3 h-2" />
+          <Progress value={progressPercentage} className="mt-2 sm:mt-3 h-2" />
         </div>
       </div>
 
       {/* Main content */}
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
+      <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         {/* Current Exercise Card */}
         {currentExercise && (
           <Card className="border-2">
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-3 sm:pb-4">
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-2xl flex items-center gap-2">
-                    <Dumbbell className="h-6 w-6 text-primary" />
-                    {currentExercise.exerciseName}
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-2">
+                    <Dumbbell className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
+                    <span className="truncate">{currentExercise.exerciseName}</span>
                   </CardTitle>
                   {currentExercise.supersetGroup && (
-                    <Badge variant="secondary" className="mt-2">
+                    <Badge variant="secondary" className="mt-1 sm:mt-2 text-xs sm:text-sm">
                       Superset {currentExercise.supersetGroup}
                     </Badge>
                   )}
                 </div>
                 {currentProgress?.isComplete && (
-                  <CheckCircle2 className="h-8 w-8 text-green-500" />
+                  <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
                 )}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4">
               {/* Exercise details */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Warmup Sets:</span>
+                  <div className="flex justify-between gap-1">
+                    <span className="text-muted-foreground">Warmup:</span>
                     <span className="font-mono font-bold">{currentExercise.warmupSets || 0}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Working Sets:</span>
+                  <div className="flex justify-between gap-1">
+                    <span className="text-muted-foreground">Sets:</span>
                     <span className="font-mono font-bold">{currentExercise.workingSets}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Rep Range:</span>
+                  <div className="flex justify-between gap-1">
+                    <span className="text-muted-foreground">Reps:</span>
                     <span className="font-mono font-bold">{currentExercise.reps}</span>
                   </div>
                   {currentExercise.rpe && currentExercise.rpe !== "N/A" && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Target RPE:</span>
+                    <div className="flex justify-between gap-1">
+                      <span className="text-muted-foreground">RPE:</span>
                       <span className="font-mono font-bold">{currentExercise.rpe}</span>
                     </div>
                   )}
@@ -310,15 +311,17 @@ export default function WorkoutTracker() {
         )}
 
         {/* Navigation buttons */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
           <Button
             variant="outline"
+            className="h-11 sm:h-10"
             onClick={goToPreviousExercise}
             disabled={session.currentExerciseIndex === 0}
             data-testid="button-previous-exercise"
           >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Previous
+            <ChevronLeft className="h-4 w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </Button>
 
           {session.currentExerciseIndex === totalExercises - 1 && 
@@ -326,22 +329,22 @@ export default function WorkoutTracker() {
             <Button
               size="lg"
               onClick={completeWorkout}
-              className="flex-1"
+              className="flex-1 h-11 sm:h-10"
               data-testid="button-complete-workout"
             >
-              <Trophy className="h-5 w-5 mr-2" />
+              <Trophy className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Complete Workout
             </Button>
           ) : (
             <Button
               variant="outline"
+              className="h-11 sm:h-10 ml-auto"
               onClick={goToNextExercise}
               disabled={session.currentExerciseIndex >= totalExercises - 1}
               data-testid="button-next-exercise"
-              className="ml-auto"
             >
               Next
-              <ChevronRight className="h-4 w-4 ml-2" />
+              <ChevronRight className="h-4 w-4 ml-1 sm:ml-2" />
             </Button>
           )}
         </div>

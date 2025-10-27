@@ -1,18 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Header from "@/components/Header";
+import ProgramCard from "@/components/ProgramCard";
+import WorkoutPreviewSheet from "@/components/WorkoutPreviewSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Upload, Dumbbell, Calendar, Trash2 } from "lucide-react";
+import { Search, Upload, Dumbbell, Calendar, Trash2, ArrowLeft, Grid3x3 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -42,13 +37,30 @@ interface ProgramResponse {
   phases: PhaseWithDays[];
 }
 
+interface ProgramStats {
+  phaseCount: number;
+  workoutDayCount: number;
+  avgExercisesPerDay: number;
+  workoutsPerWeek: number;
+}
+
+interface ProgramWithStats extends Program {
+  stats: ProgramStats;
+}
+
+type ViewMode = "all-programs" | "single-program";
+
 export default function Dashboard() {
+  const [viewMode, setViewMode] = useState<ViewMode>("single-program");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
-    null,
-  );
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [programToDelete, setProgramToDelete] = useState<string | null>(null);
+  const [previewWorkout, setPreviewWorkout] = useState<{
+    id: string;
+    name: string;
+    exercises: Exercise[];
+  } | null>(null);
   const { toast } = useToast();
 
   const {
@@ -63,6 +75,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (programs.length === 0) {
       setSelectedProgramId(null);
+      setViewMode("all-programs");
       return;
     }
 
@@ -73,14 +86,70 @@ export default function Dashboard() {
     }
   }, [programs, selectedProgramId]);
 
+  // Fetch full details for all programs (for stats calculation)
+  const { data: allProgramsData = [] } = useQuery<ProgramResponse[]>({
+    queryKey: ["/api/programs/all-details"],
+    queryFn: async () => {
+      const responses = await Promise.all(
+        programs.map(async (program) => {
+          const response = await fetch(`/api/programs/${program.id}`);
+          if (!response.ok) throw new Error("Failed to fetch program");
+          return response.json();
+        })
+      );
+      return responses;
+    },
+    enabled: programs.length > 0 && viewMode === "all-programs",
+  });
+
   // Fetch full details for the selected program
-  // Only fetch if the selected program exists in the current programs list
   const selectedProgramExists = selectedProgramId && programs.some(p => p.id === selectedProgramId);
-  const { data: programData, isLoading: isProgramLoading } =
-    useQuery<ProgramResponse>({
-      queryKey: ["/api/programs", selectedProgramId],
-      enabled: !!selectedProgramId && selectedProgramExists,
+  const { data: programData, isLoading: isProgramLoading } = useQuery<ProgramResponse>({
+    queryKey: ["/api/programs", selectedProgramId],
+    enabled: !!selectedProgramId && !!selectedProgramExists && viewMode === "single-program",
+  });
+
+  // Calculate stats for a program
+  const calculateProgramStats = (programResponse: ProgramResponse): ProgramStats => {
+    const { phases } = programResponse;
+    const phaseCount = phases.length;
+    
+    let totalWorkoutDays = 0;
+    let totalNonRestDays = 0;
+    let totalExercises = 0;
+    let firstWeekNonRestDays = 0;
+
+    phases.forEach((phase) => {
+      phase.workoutDays.forEach((day) => {
+        totalWorkoutDays++;
+        if (!day.isRestDay) {
+          totalNonRestDays++;
+          totalExercises += day.exercises.length;
+          
+          // Count first week non-rest days for frequency calculation
+          if (day.weekNumber === 1) {
+            firstWeekNonRestDays++;
+          }
+        }
+      });
     });
+
+    const avgExercisesPerDay = totalNonRestDays > 0 ? totalExercises / totalNonRestDays : 0;
+    const workoutsPerWeek = firstWeekNonRestDays > 0 ? firstWeekNonRestDays : totalNonRestDays;
+
+    return {
+      phaseCount,
+      workoutDayCount: totalWorkoutDays,
+      avgExercisesPerDay,
+      workoutsPerWeek,
+    };
+  };
+
+  // Convert program data to programs with stats
+  const programsWithStats: ProgramWithStats[] = allProgramsData.map((programResponse) => ({
+    ...programResponse.program,
+    stats: calculateProgramStats(programResponse),
+  }));
 
   // Delete program mutation
   const deleteProgramMutation = useMutation({
@@ -88,27 +157,20 @@ export default function Dashboard() {
       return await apiRequest("DELETE", `/api/programs/${programId}`);
     },
     onSuccess: async (_, deletedProgramId) => {
-      // Close dialog and clear state
       setDeleteDialogOpen(false);
       setProgramToDelete(null);
       
-      // Cancel any in-flight requests for the deleted program
       await queryClient.cancelQueries({ queryKey: ["/api/programs", deletedProgramId] });
-      
-      // Remove the deleted program's detail query from cache
       queryClient.removeQueries({ queryKey: ["/api/programs", deletedProgramId] });
       
-      // Update the programs list cache directly to remove the deleted program
-      // This prevents the useEffect from running with stale data
       queryClient.setQueryData<Program[]>(["/api/programs"], (oldData) => {
         if (!oldData) return [];
         return oldData.filter(p => p.id !== deletedProgramId);
       });
       
-      // Invalidate the programs list to trigger a refetch (which will confirm our optimistic update)
       queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/programs/all-details"] });
       
-      // Show toast notification after UI updates
       setTimeout(() => {
         toast({
           title: "Program deleted",
@@ -136,15 +198,32 @@ export default function Dashboard() {
     }
   };
 
+  const handleViewProgram = (programId: string) => {
+    setSelectedProgramId(programId);
+    setViewMode("single-program");
+  };
+
+  const handleViewAllPrograms = () => {
+    setViewMode("all-programs");
+  };
+
+  const handlePreviewWorkout = (day: WorkoutDay & { exercises: Exercise[] }) => {
+    setPreviewWorkout({
+      id: day.id,
+      name: day.dayName,
+      exercises: day.exercises,
+    });
+  };
+
   const allWorkoutDays: (WorkoutDay & {
     exercises: Exercise[];
     phaseName: string;
     phaseNumber: number;
   })[] = [];
 
-  if (programData) {
-    programData.phases.forEach((phase) => {
-      phase.workoutDays.forEach((day) => {
+  if (programData && viewMode === "single-program") {
+    programData.phases.forEach((phase: PhaseWithDays) => {
+      phase.workoutDays.forEach((day: WorkoutDay & { exercises: Exercise[] }) => {
         allWorkoutDays.push({
           ...day,
           phaseName: phase.name,
@@ -169,7 +248,7 @@ export default function Dashboard() {
 
   const trainingDays = allWorkoutDays.filter((day) => !day.isRestDay).length;
 
-  if (isLoading || isProgramLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -193,61 +272,12 @@ export default function Dashboard() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              <h1
-                className="text-2xl sm:text-4xl font-bold mb-1 sm:mb-2"
-                data-testid="text-dashboard-title"
-              >
-                {programData?.program.name || "Your Workouts"}
-              </h1>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                {programData?.program.description ||
-                  "Manage and track your workout program"}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {programs.length > 1 && (
-                <Select
-                  value={selectedProgramId || undefined}
-                  onValueChange={setSelectedProgramId}
-                >
-                  <SelectTrigger
-                    className="w-full sm:w-[250px] h-11"
-                    data-testid="select-program"
-                  >
-                    <SelectValue placeholder="Select a program" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {programs.map((program) => (
-                      <SelectItem key={program.id} value={program.id}>
-                        {program.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {selectedProgramId && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDeleteClick(selectedProgramId)}
-                  data-testid="button-delete-program"
-                  className="h-11 w-11"
-                >
-                  <Trash2 className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-        {isSuccess && programs.length === 0 && (
+  // Show empty state
+  if (isSuccess && programs.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
           <div className="text-center py-16">
             <div className="mb-4">
               <Upload className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -267,7 +297,127 @@ export default function Dashboard() {
               </Button>
             </Link>
           </div>
-        )}
+        </main>
+      </div>
+    );
+  }
+
+  // Show all programs grid view
+  if (viewMode === "all-programs") {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <h1
+                  className="text-2xl sm:text-4xl font-bold mb-1 sm:mb-2"
+                  data-testid="text-dashboard-title"
+                >
+                  Your Programs
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  Select a program to view details and start training
+                </p>
+              </div>
+              <Link href="/upload">
+                <Button
+                  className="w-full sm:w-auto h-11 sm:h-10"
+                  data-testid="button-new-upload"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  <span className="sm:hidden">Upload</span>
+                  <span className="hidden sm:inline">Upload New Program</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {programsWithStats.map((program) => (
+              <ProgramCard
+                key={program.id}
+                id={program.id}
+                name={program.name}
+                description={program.description || undefined}
+                stats={program.stats}
+                onViewProgram={handleViewProgram}
+              />
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show single program view
+  if (isProgramLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          <div className="mb-8">
+            <Skeleton className="h-10 w-64 mb-2" />
+            <Skeleton className="h-6 w-96" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              {programs.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleViewAllPrograms}
+                  className="mb-2 -ml-3"
+                  data-testid="button-view-all-programs"
+                >
+                  <Grid3x3 className="w-4 h-4 mr-2" />
+                  All Programs
+                </Button>
+              )}
+              <h1
+                className="text-2xl sm:text-4xl font-bold mb-1 sm:mb-2"
+                data-testid="text-dashboard-title"
+              >
+                {programData?.program.name || "Your Workouts"}
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                {programData?.program.description ||
+                  "Manage and track your workout program"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedProgramId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDeleteClick(selectedProgramId)}
+                  data-testid="button-delete-program"
+                  className="h-11 w-11"
+                >
+                  <Trash2 className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {allWorkoutDays.length > 0 && (
           <>
             <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
@@ -339,9 +489,9 @@ export default function Dashboard() {
           </>
         )}
 
-        {allWorkoutDays.length > 0 && (
+        {allWorkoutDays.length > 0 && programData && (
           <div className="space-y-6 sm:space-y-8">
-            {programData?.phases.map((phase) => (
+            {programData.phases.map((phase: PhaseWithDays) => (
               <div key={phase.id} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                   <h2
@@ -363,18 +513,18 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                   {phase.workoutDays
                     .filter(
-                      (day) =>
+                      (day: WorkoutDay & { exercises: Exercise[] }) =>
                         searchQuery === "" ||
                         day.dayName
                           .toLowerCase()
                           .includes(searchQuery.toLowerCase()) ||
-                        day.exercises.some((ex) =>
+                        day.exercises.some((ex: Exercise) =>
                           ex.exerciseName
                             .toLowerCase()
                             .includes(searchQuery.toLowerCase()),
                         ),
                     )
-                    .map((day) => (
+                    .map((day: WorkoutDay & { exercises: Exercise[] }) => (
                       <Card
                         key={day.id}
                         className="hover-elevate transition-all"
@@ -417,7 +567,7 @@ export default function Dashboard() {
                               <div className="space-y-2">
                                 {day.exercises
                                   .slice(0, 3)
-                                  .map((exercise, idx) => (
+                                  .map((exercise: Exercise, idx: number) => (
                                     <div
                                       key={exercise.id}
                                       className="flex items-start gap-2 text-xs sm:text-sm"
@@ -458,19 +608,15 @@ export default function Dashboard() {
                                   </p>
                                 )}
                               </div>
-                              <Link
-                                href={`/workout/${day.id}`}
-                                className="block"
+                              <Button
+                                variant="outline"
+                                className="w-full mt-2 sm:mt-3 h-11 sm:h-10"
+                                onClick={() => handlePreviewWorkout(day)}
+                                data-testid={`button-preview-workout-${day.id}`}
                               >
-                                <Button
-                                  className="w-full mt-2 sm:mt-3 h-11 sm:h-10"
-                                  size="lg"
-                                  data-testid={`button-start-workout-${day.id}`}
-                                >
-                                  <Dumbbell className="w-4 h-4 mr-2" />
-                                  Start Workout
-                                </Button>
-                              </Link>
+                                <Search className="w-4 h-4 mr-2" />
+                                Preview Workout
+                              </Button>
                             </>
                           )}
                         </CardContent>
@@ -515,6 +661,16 @@ export default function Dashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {previewWorkout && (
+        <WorkoutPreviewSheet
+          open={!!previewWorkout}
+          onOpenChange={(open) => !open && setPreviewWorkout(null)}
+          workoutDayId={previewWorkout.id}
+          workoutDayName={previewWorkout.name}
+          exercises={previewWorkout.exercises}
+        />
+      )}
     </div>
   );
 }

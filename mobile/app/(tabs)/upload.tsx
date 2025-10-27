@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -13,12 +12,7 @@ export default function UploadScreen() {
   const buttonBackgroundColor = theme.tint;
   const buttonLabelColor = isColorLight(buttonBackgroundColor) ? '#11181C' : '#fff';
 
-  const sampleTemplateUrl = useMemo(() => {
-    if (/^https?:\/\//i.test(SAMPLE_TEMPLATE_PATH)) {
-      return SAMPLE_TEMPLATE_PATH;
-    }
-    return `${API_BASE_URL}${SAMPLE_TEMPLATE_PATH}`.replace(/([^:]\/)\/+/g, '$1');
-  }, []);
+  const sampleTemplateUrl = (/^https?:\/\//i.test(SAMPLE_TEMPLATE_PATH)) ? SAMPLE_TEMPLATE_PATH : `${API_BASE_URL}${SAMPLE_TEMPLATE_PATH}`.replace(/([^:]\/)\/+/g, '$1');
 
   const handleOpenTemplate = () => {
     Linking.openURL(sampleTemplateUrl).catch(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -24,9 +24,20 @@ interface ProgramResponse {
   phases: PhaseWithDays[];
 }
 
-type ViewState = 'loading' | 'empty' | 'ready';
+interface WorkoutDayWithExercises extends WorkoutDay {
+  exercises: Exercise[];
+  phaseName: string;
+  phaseNumber: number;
+}
 
-function calculateProgramStats(programResponse: ProgramResponse) {
+type ViewState = 'loading' | 'empty' | 'ready';
+type ProgramStats = {
+  phaseCount: number;
+  workoutDayCount: number;
+  avgExercisesPerDay: number;
+  workoutsPerWeek: number;
+}
+function calculateProgramStats(programResponse: ProgramResponse): ProgramStats {
   const { phases } = programResponse;
 
   let totalWorkoutDays = 0;
@@ -105,37 +116,29 @@ export default function DashboardScreen() {
     enabled: viewState === 'ready' && !!selectedProgramId,
   });
 
-  const flattenedWorkoutDays = useMemo(() => {
-    if (!selectedProgramData) return [];
-
-    return selectedProgramData.phases.flatMap((phase) =>
+	let flattenedWorkoutDays: WorkoutDayWithExercises[] = [];
+	if (!selectedProgramData) flattenedWorkoutDays = []
+	else flattenedWorkoutDays = selectedProgramData.phases.flatMap((phase) =>
       phase.workoutDays.map((day) => ({
         ...day,
         phaseName: phase.name,
         phaseNumber: phase.phaseNumber,
       })),
     );
-  }, [selectedProgramData]);
 
-  const filteredWorkoutDays = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return flattenedWorkoutDays;
-    }
+		let filteredWorkoutDays: WorkoutDayWithExercises[] = [];
+		if (!searchQuery.trim()) filteredWorkoutDays = flattenedWorkoutDays;
+		else {
+			const normalized = searchQuery.trim().toLowerCase();
+			filteredWorkoutDays = flattenedWorkoutDays.filter((day) => {
+				const matchesName = day.dayName.toLowerCase().includes(normalized);
+				const matchesExercise = day.exercises.some((exercise) => exercise.exerciseName.toLowerCase().includes(normalized));
+				return matchesName || matchesExercise;
+			});
+		}
 
-    const normalized = searchQuery.trim().toLowerCase();
-    return flattenedWorkoutDays.filter((day) => {
-      const matchesName = day.dayName.toLowerCase().includes(normalized);
-      const matchesExercise = day.exercises.some((exercise) =>
-        exercise.exerciseName.toLowerCase().includes(normalized),
-      );
-      return matchesName || matchesExercise;
-    });
-  }, [flattenedWorkoutDays, searchQuery]);
-
-  const selectedProgramStats = useMemo(() => {
-    if (!selectedProgramData) return null;
-    return calculateProgramStats(selectedProgramData);
-  }, [selectedProgramData]);
+		let selectedProgramStats: ProgramStats | null = null;
+		if (selectedProgramData) selectedProgramStats = calculateProgramStats(selectedProgramData);
 
   const handleWorkoutPress = (workoutId: string) => {
     router.push({

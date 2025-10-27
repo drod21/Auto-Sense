@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -109,15 +109,8 @@ export default function WorkoutTrackerScreen() {
     return () => clearInterval(interval);
   }, [restSecondsRemaining]);
 
-  const currentExercise = useMemo(() => {
-    if (!workoutData) return undefined;
-    return workoutData.exercises[session.currentExerciseIndex];
-  }, [session.currentExerciseIndex, workoutData]);
-
-  const currentProgress = useMemo(() => {
-    return session.exerciseProgress[session.currentExerciseIndex];
-  }, [session.exerciseProgress, session.currentExerciseIndex]);
-
+	const currentExercise = workoutData?.exercises[session.currentExerciseIndex] ?? null;
+	const currentProgress = session.exerciseProgress[session.currentExerciseIndex] ?? null;
   const totalExercises = session.exerciseProgress.length;
   const completedExercises = session.exerciseProgress.filter((item) => item.isComplete).length;
   const progressRatio = totalExercises > 0 ? completedExercises / totalExercises : 0;

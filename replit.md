@@ -2,9 +2,9 @@
 
 ## Overview
 
-Workout Tracker is an AI-powered fitness planning application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can view their workouts in both grid and table layouts, manage exercises, and export data.
+Workout Tracker is an AI-powered fitness planning mobile application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can track their workouts in real-time, log sets, and monitor progress.
 
-The application is built as a full-stack TypeScript solution with React on the frontend and Express on the backend, using a modern design system inspired by Linear and Material Design principles.
+The application is built as a full-stack TypeScript solution with React Native (Expo) on the mobile frontend and Express on the backend, using Material Design principles through React Native Paper.
 
 ## User Preferences
 
@@ -12,36 +12,54 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Mobile Frontend Architecture
 
 **Framework & Build System:**
-- React 18 with TypeScript using Vite as the build tool
-- Client-side routing via Wouter (lightweight alternative to React Router)
-- TanStack Query (React Query) for server state management and API data fetching
+- React Native with Expo for cross-platform mobile development (iOS & Android)
+- TypeScript for type safety
+- Metro bundler for JavaScript bundling
+- Expo Go for development testing
+
+**Navigation:**
+- React Navigation with Bottom Tabs for main navigation
+- Stack Navigator for screen-to-screen transitions
+- Deep linking support for workout tracking
 
 **UI Component System:**
-- Shadcn/ui component library (Radix UI primitives with custom styling)
-- Tailwind CSS for styling with custom design tokens
-- Component configuration stored in `components.json` with path aliases for clean imports
-- Design system follows Linear-inspired aesthetics with focus on clarity, data density, and functional excellence
+- React Native Paper for Material Design components
+- Material Community Icons for iconography
+- Native animations and gestures via React Native Gesture Handler and Reanimated
+- Built-in dark mode support with automatic theme switching
 
-**Styling Philosophy:**
-- Typography: Inter for UI text, JetBrains Mono for numerical data (sets, reps, timers)
-- Custom CSS variables for theming (light/dark mode support)
-- Hover and active state elevation effects for interactive elements
-- Responsive grid layouts: 3-column on desktop, 2-column on tablet, single column on mobile
+**State Management:**
+- TanStack Query (React Query) for server state management and API data fetching
+- Local component state for workout session tracking
+- Real-time updates and optimistic UI updates
 
-**Key UI Pages:**
-- Dashboard: Main view displaying workout programs with phases and workout days. Shows workout days as cards with exercises grouped within each day. Includes search functionality and program statistics.
-- Upload: Drag-and-drop file upload interface with progress tracking and AI parsing feedback
-- 404: Not Found fallback page
+**Key Screens:**
+- **DashboardScreen**: Displays all workout programs with expandable details. Shows phases, workout days, and exercise counts. Includes search, delete, and navigation to individual workouts.
+- **UploadScreen**: Native document picker for CSV/Excel files with upload progress tracking and AI parsing feedback. Automatic navigation to dashboard on success.
+- **WorkoutTrackerScreen**: Active workout tracking interface with exercise guidance, set logging (weight, reps, RPE), automatic rest timers, progress tracking, and completion celebration.
+
+**Key Components:**
+- **SetLoggerCard**: Input form for logging sets with weight, reps, and RPE. Shows completed sets history and warmup/working set indicators.
+- **RestTimerCard**: Countdown timer with pause/resume controls. Automatically starts after each set based on program rest time.
+
+**Mobile-Specific Features:**
+- Native file picker via Expo Document Picker
+- Safe area handling for notched devices
+- Pull-to-refresh on lists
+- Native animations and transitions
+- Haptic feedback (planned)
+- Offline support (planned)
 
 ### Backend Architecture
 
 **Server Framework:**
 - Express.js with TypeScript
-- Vite integration for development with HMR (Hot Module Replacement)
+- CORS enabled for mobile app access
 - Custom middleware for request logging and JSON body parsing with raw buffer preservation
+- Multer for handling file uploads from mobile devices
 
 **Data Storage Strategy:**
 - In-memory storage implementation (`MemStorage` class) using Maps for workouts and exercises
@@ -116,6 +134,31 @@ Preferred communication style: Simple, everyday language.
 - In-memory storage currently handles all data persistence during runtime
 
 **Build & Deployment:**
-- Development: `NODE_ENV=development tsx server/index.ts` runs dev server with Vite middleware
-- Production: Vite builds frontend to `dist/public`, esbuild bundles backend to `dist/index.js`
-- Frontend assets served statically in production mode
+- Backend Development: `npm run dev` runs Express API server on port 5000
+- Mobile Development: `npx expo start` runs Metro bundler with QR code for Expo Go
+- Backend Production: `npm start` runs production Express server
+- Mobile Production: Build with Expo EAS or standalone builds for App Store/Play Store deployment
+
+**Running the Application:**
+1. Start backend: `npm run dev` (runs on port 5000, accessible via Replit URL)
+2. Update API URL in `mobile/lib/api.ts` with your Replit backend URL
+3. Start mobile app: `npx expo start`
+4. Scan QR code with Expo Go app on your phone
+
+**Mobile Development Workflow:**
+- Backend runs on Replit (always accessible via HTTPS URL)
+- Mobile app connects to Replit backend via configured API_BASE_URL
+- Use Expo Go for quick testing without building native apps
+- Changes hot-reload automatically via Fast Refresh
+
+## Recent Changes (October 2025)
+
+**React Native Conversion:**
+- Converted from React web app to React Native mobile app
+- Implemented native mobile UI with React Native Paper
+- Added mobile file picker for workout spreadsheet uploads
+- Created workout tracking interface optimized for mobile
+- Implemented bottom tab navigation and stack navigation
+- Added native components: SetLoggerCard, RestTimerCard
+- Enabled CORS in backend for mobile API access
+- Maintained all core features: AI parsing, program management, workout tracking

@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Workout Tracker",
+    "slug": "workout-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#6200ee"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.workouttracker.app"
+    },
+    "android": {
+      "package": "com.workouttracker.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "scheme": "workouttracker"
+  }
+}

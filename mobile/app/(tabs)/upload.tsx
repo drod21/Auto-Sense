@@ -10,6 +10,9 @@ export default function UploadScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
 
+  const buttonBackgroundColor = theme.tint;
+  const buttonLabelColor = isColorLight(buttonBackgroundColor) ? '#11181C' : '#fff';
+
   const sampleTemplateUrl = useMemo(() => {
     if (/^https?:\/\//i.test(SAMPLE_TEMPLATE_PATH)) {
       return SAMPLE_TEMPLATE_PATH;
@@ -54,8 +57,10 @@ export default function UploadScreen() {
           </Text>
           <TouchableOpacity
             onPress={handleOpenTemplate}
-            style={[styles.button, { backgroundColor: theme.tint }]}>
-            <Text style={styles.buttonLabel}>Download Sample Spreadsheet</Text>
+            style={[styles.button, { backgroundColor: buttonBackgroundColor }]}>
+            <Text style={[styles.buttonLabel, { color: buttonLabelColor }]}>
+              Download Sample Spreadsheet
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -107,8 +112,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: {
-    color: '#fff',
     fontSize: 15,
     fontWeight: '600',
   },
 });
+
+function isColorLight(color: string) {
+  if (!color || color === 'transparent') {
+    return false;
+  }
+
+  if (!color.startsWith('#')) {
+    return false;
+  }
+
+  let hex = color.slice(1);
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((char) => char + char)
+      .join('');
+  }
+
+  if (hex.length !== 6) {
+    return false;
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.7;
+}

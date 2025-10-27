@@ -427,9 +427,11 @@ function ActionButton({
   variant = 'solid',
   disabled = false,
 }: ActionButtonProps) {
-  const backgroundColor =
-    variant === 'solid' ? themeColor : 'transparent';
-  const textColor = variant === 'solid' ? '#fff' : themeColor;
+  const isSolid = variant === 'solid';
+  const backgroundColor = isSolid ? themeColor : 'transparent';
+  const computedTextColor = isSolid
+    ? isColorLight(backgroundColor) ? '#11181C' : '#fff'
+    : themeColor;
   const borderWidth = variant === 'outline' ? 1 : 0;
   const borderColor = themeColor;
 
@@ -437,18 +439,20 @@ function ActionButton({
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
+      activeOpacity={0.8}
       style={[
         styles.actionButton,
         {
-          backgroundColor: disabled ? `${themeColor}30` : backgroundColor,
+          backgroundColor,
           borderWidth,
           borderColor,
+          opacity: disabled ? 0.6 : 1,
         },
       ]}>
       <Text
         style={[
           styles.actionButtonLabel,
-          { color: disabled ? '#FFF' : textColor },
+          { color: disabled && !isSolid ? `${themeColor}80` : computedTextColor },
         ]}>
         {label}
       </Text>
@@ -521,6 +525,35 @@ function formatSeconds(seconds: number) {
   const mins = Math.floor(clamped / 60);
   const secs = clamped % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function isColorLight(color: string) {
+  if (!color || color === 'transparent') {
+    return false;
+  }
+
+  if (!color.startsWith('#')) {
+    return false;
+  }
+
+  let hex = color.slice(1);
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((char) => char + char)
+      .join('');
+  }
+
+  if (hex.length !== 6) {
+    return false;
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.7;
 }
 
 const styles = StyleSheet.create({

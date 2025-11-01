@@ -37,8 +37,9 @@ Preferred communication style: Simple, everyday language.
 - Real-time updates and optimistic UI updates
 
 **Key Screens:**
-- **DashboardScreen**: Displays all workout programs with expandable details. Shows phases, workout days, and exercise counts. Includes search, delete, and navigation to individual workouts.
-- **UploadScreen**: Native document picker for CSV/Excel files with upload progress tracking and AI parsing feedback. Automatic navigation to dashboard on success.
+- **LoginScreen**: WebView-based authentication screen for Replit Auth OAuth flow. Shows branded login interface and handles session cookie management.
+- **DashboardScreen**: Displays user's workout programs with expandable details. Shows phases, workout days, and exercise counts. Includes search, delete, and navigation to individual workouts.
+- **UploadScreen**: Native document picker for CSV/Excel files with upload progress tracking and AI parsing feedback. Requires authentication. Automatic navigation to dashboard on success.
 - **WorkoutTrackerScreen**: Active workout tracking interface with exercise guidance, set logging (weight, reps, RPE), automatic rest timers, progress tracking, and completion celebration.
 
 **Key Components:**
@@ -46,6 +47,9 @@ Preferred communication style: Simple, everyday language.
 - **RestTimerCard**: Countdown timer with pause/resume controls. Automatically starts after each set based on program rest time.
 
 **Mobile-Specific Features:**
+- WebView-based OAuth authentication using react-native-webview
+- Session cookie management with credentials: 'include' in fetch requests
+- Authentication state management with automatic login screen display
 - Native file picker via Expo Document Picker
 - Safe area handling for notched devices
 - Pull-to-refresh on lists
@@ -62,17 +66,28 @@ Preferred communication style: Simple, everyday language.
 - Multer for handling file uploads from mobile devices
 
 **Data Storage Strategy:**
-- In-memory storage implementation (`MemStorage` class) using Maps for workouts and exercises
-- Interface-based storage abstraction (`IStorage`) allowing easy swap to persistent database
-- Drizzle ORM configured for PostgreSQL (via Neon serverless) but currently using in-memory storage
+- PostgreSQL database (Neon serverless) with Drizzle ORM
+- Database storage implementation (`DbStorage` class) for persistent data
+- Interface-based storage abstraction (`IStorage`) allowing easy swap between implementations
 - UUID-based primary keys using `crypto.randomUUID()`
+- Multi-user support with user-scoped data isolation
 
 **Schema Design (Hierarchical Structure):**
-- `programs` table: id, name, uploadDate, description (top-level entity)
+- `users` table: id, email, firstName, lastName, profileImageUrl, createdAt, updatedAt (user profiles from Replit Auth)
+- `sessions` table: sid, sess, expire (PostgreSQL session store for authentication)
+- `programs` table: id, name, uploadDate, description, **userId** (top-level entity, scoped to user)
 - `phases` table: id, programId, name, phaseNumber, description (subdivisions of a program)
 - `workout_days` table: id, phaseId, dayName, dayNumber, isRestDay, weekNumber (individual training sessions)
 - `exercises` table: id, workoutDayId, exerciseName, warmupSets, workingSets, reps, load, rpe, restTimer, substitutionOption1, substitutionOption2, notes, supersetGroup, exerciseOrder
 - Zod schemas for runtime validation derived from Drizzle schema definitions
+
+**Authentication & Authorization:**
+- Replit Auth integration for OAuth-based authentication
+- Session-based authentication with PostgreSQL session store (connect-pg-simple)
+- Passport.js with OpenID Connect strategy for OAuth flow
+- Protected API routes: upload and delete require authentication
+- User-scoped data: Programs filtered by userId, users can only manage their own data
+- Automatic token refresh when access tokens expire
 
 **File Processing Pipeline:**
 1. Multer middleware handles file uploads (10MB limit, CSV/Excel only)
@@ -129,9 +144,13 @@ Preferred communication style: Simple, everyday language.
 - Replit AI Integrations: Provides OpenAI API access without separate API key
 - Neon Database: Serverless PostgreSQL (configured but not actively used with current in-memory storage)
 
-**Session & State Management:**
-- `connect-pg-simple`: PostgreSQL session store for Express (installed but not actively configured)
-- In-memory storage currently handles all data persistence during runtime
+**Authentication & Session Management:**
+- `passport`: Authentication middleware for Express
+- `passport-local`: Local authentication strategy (not currently used)
+- `openid-client`: OpenID Connect client for Replit Auth
+- `connect-pg-simple`: PostgreSQL session store for Express (actively used)
+- `memoizee`: Caching for token validation and refresh
+- `express-session`: Session management middleware
 
 **Build & Deployment:**
 - Backend Development: `npm run dev` runs Express API server on port 5000
@@ -151,9 +170,20 @@ Preferred communication style: Simple, everyday language.
 - Use Expo Go for quick testing without building native apps
 - Changes hot-reload automatically via Fast Refresh
 
-## Recent Changes (October 2025)
+## Recent Changes (November 2025)
 
-**React Native Conversion:**
+**Authentication Implementation:**
+- Integrated Replit Auth for OAuth-based user authentication
+- Added PostgreSQL-backed session management with connect-pg-simple
+- Created users and sessions tables in database schema
+- Added userId foreign key to programs table for user-scoped data
+- Protected upload and delete routes to require authentication
+- Implemented WebView-based mobile login flow using react-native-webview
+- Updated API client to handle session cookies with credentials: 'include'
+- Navigation automatically shows login screen when user is not authenticated
+- Users can only view and manage their own workout programs
+
+**React Native Conversion (October 2025):**
 - Converted from React web app to React Native mobile app
 - Implemented native mobile UI with React Native Paper
 - Added mobile file picker for workout spreadsheet uploads

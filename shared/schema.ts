@@ -1,11 +1,35 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
+
+// Session storage table - Required for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table - Required for Replit Auth
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 // Programs are the top-level entity (e.g., "Ultimate PPL System")
 export const programs = pgTable("programs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // Link to user who uploaded the program
   name: text("name").notNull(),
   uploadDate: text("upload_date").notNull(),
   description: text("description"),
@@ -48,7 +72,49 @@ export const exercises = pgTable("exercises", {
   exerciseOrder: integer("exercise_order").notNull(),
 });
 
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  programs: many(programs),
+}));
+
+export const programsRelations = relations(programs, ({ one, many }) => ({
+  user: one(users, {
+    fields: [programs.userId],
+    references: [users.id],
+  }),
+  phases: many(phases),
+}));
+
+export const phasesRelations = relations(phases, ({ one, many }) => ({
+  program: one(programs, {
+    fields: [phases.programId],
+    references: [programs.id],
+  }),
+  workoutDays: many(workoutDays),
+}));
+
+export const workoutDaysRelations = relations(workoutDays, ({ one, many }) => ({
+  phase: one(phases, {
+    fields: [workoutDays.phaseId],
+    references: [phases.id],
+  }),
+  exercises: many(exercises),
+}));
+
+export const exercisesRelations = relations(exercises, ({ one }) => ({
+  workoutDay: one(workoutDays, {
+    fields: [exercises.workoutDayId],
+    references: [workoutDays.id],
+  }),
+}));
+
 // Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertProgramSchema = createInsertSchema(programs).omit({
   id: true,
 });
@@ -66,6 +132,9 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({
 });
 
 // Types
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+
 export type InsertProgram = z.infer<typeof insertProgramSchema>;
 export type Program = typeof programs.$inferSelect;
 

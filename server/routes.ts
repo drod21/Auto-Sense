@@ -4,6 +4,7 @@ import multer from "multer";
 import { storage } from "./storage";
 import { parseProgramSpreadsheet } from "./lib/programParser";
 import { insertProgramSchema, insertPhaseSchema, insertWorkoutDaySchema, insertExerciseSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -23,8 +24,23 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Upload and parse program spreadsheet
-  app.post("/api/programs/upload", upload.single("file"), async (req, res) => {
+  // Set up Replit Auth
+  await setupAuth(app);
+
+  // Get authenticated user
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Upload and parse program spreadsheet (protected - requires authentication)
+  app.post("/api/programs/upload", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
@@ -38,8 +54,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         programName
       );
 
-      // Create program record
+      // Get userId from authenticated user
+      const userId = req.user.claims.sub;
+
+      // Create program record linked to the user
       const program = await storage.createProgram({
+        userId, // Link program to the authenticated user
         name: parsedProgram.programName,
         uploadDate: new Date().toISOString(),
         description: parsedProgram.description || null,
@@ -117,11 +137,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all programs
-  app.get("/api/programs", async (req, res) => {
+  // Get programs (filtered by user if authenticated)
+  app.get("/api/programs", isAuthenticated, async (req: any, res) => {
     try {
-      const programs = await storage.getAllPrograms();
-      console.log("Fetched programs:", programs)
+      const userId = req.user.claims.sub;
+      const programs = await storage.getProgramsByUserId(userId);
+      console.log("Fetched programs for user:", userId, programs);
       res.json(programs);
     } catch (error) {
       console.error("Error fetching programs:", error);
@@ -129,9 +150,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete a program
-  app.delete("/api/programs/:id", async (req, res) => {
+  // Delete a program (protected - users can only delete their own programs)
+  app.delete("/api/programs/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      
+      // Check if program belongs to user
+      const program = await storage.getProgram(req.params.id);
+      if (!program) {
+        return res.status(404).json({ error: "Program not found" });
+      }
+      
+      if (program.userId !== userId) {
+        return res.status(403).json({ error: "You can only delete your own programs" });
+      }
+
       const deleted = await storage.deleteProgram(req.params.id);
       
       if (!deleted) {
@@ -145,12 +178,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get program by ID with full structure
-  app.get("/api/programs/:id", async (req, res) => {
+  // Get program by ID with full structure (protected)
+  app.get("/api/programs/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const program = await storage.getProgram(req.params.id);
       if (!program) {
         return res.status(404).json({ error: "Program not found" });
+      }
+      
+      // Check if program belongs to user
+      if (program.userId !== userId) {
+        return res.status(403).json({ error: "You can only view your own programs" });
       }
 
       const phases = await storage.getPhasesByProgramId(req.params.id);
@@ -178,8 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get workout day by ID with exercises
-  app.get("/api/workout-days/:id", async (req, res) => {
+  // Get workout day by ID with exercises (protected)
+  app.get("/api/workout-days/:id", isAuthenticated, async (req, res) => {
     try {
       const workoutDay = await storage.getWorkoutDay(req.params.id);
       if (!workoutDay) {

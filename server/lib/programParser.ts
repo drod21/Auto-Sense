@@ -38,6 +38,27 @@ export interface ParsedExercise {
   videoUrl?: string;
 }
 
+function extractHyperlinks(sheet: XLSX.WorkSheet): Map<string, string> {
+  const hyperlinks = new Map<string, string>();
+  
+  // Iterate through all cells in the sheet
+  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+  
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = sheet[cellAddress];
+      
+      // Check if cell has a hyperlink (stored in the 'l' property)
+      if (cell && cell.l && cell.l.Target) {
+        hyperlinks.set(cellAddress, cell.l.Target);
+      }
+    }
+  }
+  
+  return hyperlinks;
+}
+
 export async function parseProgramSpreadsheet(
   buffer: Buffer,
   filename: string
@@ -55,10 +76,16 @@ export async function parseProgramSpreadsheet(
     const sheet = workbook.Sheets[sheetName];
     const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
     
+    // Extract hyperlinks from the sheet
+    const hyperlinks = extractHyperlinks(sheet);
+    
     console.log(`Processing sheet ${i + 1}/${workbook.SheetNames.length}: ${sheetName}`);
+    if (hyperlinks.size > 0) {
+      console.log(`  Found ${hyperlinks.size} hyperlinks in sheet "${sheetName}"`);
+    }
     
     // Use OpenAI to parse this phase
-    return parsePhaseWithOpenAI(sheetName, sheetData, i + 1);
+    return parsePhaseWithOpenAI(sheetName, sheetData, hyperlinks, i + 1);
   });
   
   // Wait for all sheets to be processed in parallel
@@ -82,10 +109,25 @@ async function sleep(ms: number): Promise<void> {
 async function parsePhaseWithOpenAI(
   sheetName: string,
   sheetData: any[][],
+  hyperlinks: Map<string, string>,
   phaseNumber: number
 ): Promise<ParsedPhase> {
   // Limit the amount of data sent to OpenAI - take first 100 rows
   const limitedData = sheetData.slice(0, 100);
+  
+  // Create a hyperlink map with row/col coordinates for easier lookup
+  const hyperlinkData: { row: number; col: number; text: string; url: string }[] = [];
+  hyperlinks.forEach((url, cellAddress) => {
+    const decoded = XLSX.utils.decode_cell(cellAddress);
+    if (decoded.r < 100 && limitedData[decoded.r] && limitedData[decoded.r][decoded.c]) {
+      hyperlinkData.push({
+        row: decoded.r,
+        col: decoded.c,
+        text: String(limitedData[decoded.r][decoded.c]),
+        url: url
+      });
+    }
+  });
   
   // Retry logic for rate limits
   let retries = 0;
@@ -109,6 +151,7 @@ Your task:
 3. For each workout day, extract all exercises with their details
 4. Recognize supersets (marked with A1/A2 or B1/B2 prefixes in exercise names)
 5. Add 1-2 rest days to complete a weekly schedule (PPL programs typically have 5-6 training days + 1-2 rest days)
+6. Match exercise names with their video URLs from the hyperlinks data
 
 IMPORTANT PARSING RULES:
 - Column headers usually include: "Exercise", "Warm-up Sets", "Working Sets", "Reps", "Load", "RPE", "Rest", "Substitution Option"
@@ -119,6 +162,7 @@ IMPORTANT PARSING RULES:
 - For RPE, keep as string (can be number, "See Notes", or "N/A")
 - For rest timer, keep as string (e.g., "~3-4 min", "0 min", "~1-2 min")
 - Give each exercise an exerciseOrder number (1, 2, 3, etc.) within its workout day
+- CRITICAL: When you see an exercise name in the hyperlinks array, extract the URL and set it as the videoUrl field for that exercise
 
 CRITICAL VALUE RANGES - DO NOT USE VALUES OUTSIDE THESE RANGES:
 - warmupSets: MUST be between 0-5 (typically 0-3). NEVER use large numbers like 44624!
@@ -149,7 +193,8 @@ Return a JSON object:
           "substitutionOption2": "Machine Chest Press",
           "notes": "Keep shoulder blades retracted",
           "supersetGroup": null,
-          "exerciseOrder": 1
+          "exerciseOrder": 1,
+          "videoUrl": "https://youtube.com/watch?v=example"
         }
       ]
     },
@@ -169,6 +214,11 @@ Return a JSON object:
 
 First 100 rows of sheet data:
 ${JSON.stringify(limitedData, null, 2)}
+
+Hyperlinks found in cells (these are video demonstration URLs for exercises):
+${JSON.stringify(hyperlinkData, null, 2)}
+
+IMPORTANT: Match exercise names from the sheet data with the hyperlinks array. When you find an exercise name that matches a hyperlink text, include that URL as the videoUrl field for that exercise.
 
 Return the parsed phase structure as JSON. Include suggested rest days to complete a 7-day week.`,
       },
@@ -254,8 +304,8 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
         }
       }
       
-      // Extract YouTube URL from exercise name if present
-      const { cleanName, videoUrl } = extractYouTubeUrl(exercise.exerciseName);
+      // Extract YouTube URL from exercise name if present (inline URL in text)
+      const { cleanName, videoUrl: inlineVideoUrl } = extractYouTubeUrl(exercise.exerciseName);
       
       processedExercises.push({
         ...exercise,
@@ -271,8 +321,8 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
         exerciseOrder: exerciseOrder++,
         // Apply corrected superset group
         supersetGroup: supersetGroup || null,
-        // Add extracted video URL
-        videoUrl: videoUrl || undefined,
+        // Preserve video URL: prefer inline URL, fall back to hyperlink URL from OpenAI, then undefined
+        videoUrl: inlineVideoUrl || exercise.videoUrl || undefined,
       });
     }
     

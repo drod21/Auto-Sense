@@ -1,13 +1,31 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Menu, X, Home, Upload } from "lucide-react";
+import { Dumbbell, Menu, X, Home, Upload, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Header() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
+
+  const getUserInitials = () => {
+    if (!user) return "U";
+    if (user.firstName && user.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
 
   return (
     <>
@@ -41,6 +59,28 @@ export default function Header() {
               </Button>
             </Link>
             <ThemeToggle />
+            {user && (
+              <>
+                <div className="flex items-center gap-2 px-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.profileImageUrl || undefined} alt={user.email || "User"} />
+                    <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm text-muted-foreground max-w-[120px] truncate">
+                    {user.firstName || user.email}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  data-testid="button-logout"
+                  className="h-11"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            )}
           </nav>
 
           {/* Mobile Navigation */}
@@ -65,6 +105,26 @@ export default function Header() {
             <SheetTitle className="text-lg">Menu</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col p-4 gap-2">
+            {user && (
+              <div className="flex items-center gap-3 px-3 py-3 mb-2 rounded-md bg-muted/50">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={user.profileImageUrl || undefined} alt={user.email || "User"} />
+                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {user.firstName && user.lastName 
+                      ? `${user.firstName} ${user.lastName}`
+                      : user.email}
+                  </p>
+                  {user.firstName && user.email && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <Link href="/">
               <Button
                 variant={location === "/" ? "secondary" : "ghost"}
@@ -89,6 +149,18 @@ export default function Header() {
                 Upload Program
               </Button>
             </Link>
+            {user && (
+              <Button
+                variant="ghost"
+                size="lg"
+                className="w-full justify-start h-12 mt-2"
+                onClick={handleLogout}
+                data-testid="mobile-button-logout"
+              >
+                <LogOut className="mr-3 h-5 w-5" />
+                Logout
+              </Button>
+            )}
           </nav>
         </SheetContent>
       </Sheet>

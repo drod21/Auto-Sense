@@ -1,10 +1,10 @@
-# Workout Tracker Design Guidelines
+# Lipht Design Guidelines
 
 ## Design Approach
 
 **Selected Approach:** Design System with Linear-inspired aesthetics and Material Design information architecture
 
-**Rationale:** This is a utility-focused productivity tool requiring clear data hierarchy, efficient workflows, and functional excellence. The application prioritizes usability and information density over visual storytelling.
+**Rationale:** Lipht (Long-term Integration Progressive Hypertrophy Tracker) is a utility-focused productivity tool requiring clear data hierarchy, efficient workflows, and functional excellence. The application prioritizes usability and information density over visual storytelling.
 
 **Key Design Principles:**
 - Clarity above all: Every data point must be immediately scannable

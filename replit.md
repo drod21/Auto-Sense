@@ -1,8 +1,8 @@
-# Workout Tracker
+# Lipht
 
 ## Overview
 
-Workout Tracker is an AI-powered fitness planning mobile application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can track their workouts in real-time, log sets, and monitor progress.
+Lipht (Long-term Integration Progressive Hypertrophy Tracker) is an AI-powered fitness planning mobile application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can track their workouts in real-time, log sets, and monitor progress.
 
 The application is built as a full-stack TypeScript solution with React Native (Expo) on the mobile frontend and Express on the backend, using Material Design principles through React Native Paper.
 

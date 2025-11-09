@@ -38,10 +38,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     <View style={styles.container}>
       <View style={styles.content}>
         <Text variant="displaySmall" style={styles.title}>
-          Workout Tracker
+          Lipht
         </Text>
         <Text variant="bodyLarge" style={styles.subtitle}>
-          Track your workouts with AI-powered program planning
+          Long-term integration progressive hypertrophy tracker
         </Text>
 
         <Button 

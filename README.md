@@ -1,6 +1,6 @@
-# Workout Tracker - React Native Mobile App
+# Lipht - Long-term Integration Progressive Hypertrophy Tracker
 
-An AI-powered fitness planning mobile application built with React Native and Expo. Upload workout spreadsheets and let AI automatically parse your exercise routines into structured workout programs.
+An AI-powered fitness planning mobile application built with React Native and Expo. Upload workout spreadsheets and let AI automatically parse your exercise routines into structured workout programs for long-term progressive hypertrophy training.
 
 ## Features
 

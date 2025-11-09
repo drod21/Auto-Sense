@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Workout Tracker",
-    "slug": "workout-tracker",
+    "name": "Lipht",
+    "slug": "lipht",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -14,14 +14,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.workouttracker.app"
+      "bundleIdentifier": "com.lipht.app"
     },
     "android": {
-      "package": "com.workouttracker.app"
+      "package": "com.lipht.app"
     },
     "web": {
       "bundler": "metro"
     },
-    "scheme": "workouttracker"
+    "scheme": "lipht"
   }
 }

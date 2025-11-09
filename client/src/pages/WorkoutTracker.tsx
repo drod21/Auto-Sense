@@ -12,7 +12,8 @@ import {
   X, 
   CheckCircle2,
   Dumbbell,
-  Trophy
+  Trophy,
+  ExternalLink
 } from "lucide-react";
 import SetLogger from "@/components/SetLogger";
 import RestTimer from "@/components/RestTimer";
@@ -84,6 +85,24 @@ export default function WorkoutTracker() {
   // Get current exercise
   const currentExercise = workoutData?.exercises[session.currentExerciseIndex];
   const currentProgress = session.exerciseProgress[session.currentExerciseIndex];
+
+  // Helper function to get YouTube embed URL
+  const getYouTubeEmbedUrl = (url: string): string | null => {
+    const patterns = [
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return `https://www.youtube.com/embed/${match[1]}`;
+      }
+    }
+    
+    return null;
+  };
 
   // Calculate overall progress
   const totalExercises = workoutData?.exercises.length || 0;
@@ -263,6 +282,43 @@ export default function WorkoutTracker() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3 sm:space-y-4">
+              {/* Video Section */}
+              {currentExercise.videoUrl && (
+                <div className="space-y-2">
+                  {(() => {
+                    const embedUrl = getYouTubeEmbedUrl(currentExercise.videoUrl);
+                    if (embedUrl) {
+                      return (
+                        <div className="rounded-md overflow-hidden bg-muted" data-testid="video-embed">
+                          <iframe
+                            width="100%"
+                            height="200"
+                            src={embedUrl}
+                            title="Exercise demonstration"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="rounded-md"
+                          />
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => window.open(currentExercise.videoUrl!, '_blank')}
+                          data-testid="button-open-video"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Watch Exercise Video
+                        </Button>
+                      );
+                    }
+                  })()}
+                </div>
+              )}
+
               {/* Exercise details */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="space-y-2">

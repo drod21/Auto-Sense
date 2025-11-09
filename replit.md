@@ -176,14 +176,16 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes (November 2025)
 
 **Web Application Authentication (November 9, 2025):**
-- Added authentication to the web frontend with Replit Auth integration
-- Created Landing page for unauthenticated users showcasing app features
-- Implemented useAuth hook for managing authentication state across the app
-- Updated Header component to display user profile (avatar, name/email) and logout button
-- Added 401 error handling with automatic redirect to login
-- Protected routes properly handle both authenticated and unauthenticated states
-- Smooth loading states during authentication checks to prevent flash of incorrect content
-- Users can now login, logout, and see their personal workout programs on the web app
+- Integrated Replit Auth for web frontend with complete OAuth support (Google, GitHub, X, Apple, email/password)
+- Created Landing page showcasing app features for unauthenticated users
+- Implemented robust useAuth hook that combines isLoading and isFetching to prevent stale cache issues
+- Auth hook clears cached user data on 401 errors to ensure clean logout flow
+- Updated Header to display user profile with avatar, name/email, and logout button
+- Protected all routes (Dashboard, Upload, WorkoutTracker) with proper auth guards
+- Loading states prevent flash of unauthorized content during authentication verification
+- 401 error handling with toast notifications and automatic redirect to login
+- Session expiration properly triggers logout flow without showing stale data
+- End-to-end authentication flow tested and verified working correctly
 
 **Authentication Implementation (Previously):**
 - Integrated Replit Auth for OAuth-based user authentication

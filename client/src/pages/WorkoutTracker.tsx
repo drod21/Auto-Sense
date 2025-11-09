@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import SetLogger from "@/components/SetLogger";
 import RestTimer from "@/components/RestTimer";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import type { 
   WorkoutDay, 
   Exercise, 
@@ -31,11 +33,27 @@ interface WorkoutDayWithExercises extends WorkoutDay {
 export default function WorkoutTracker() {
   const { workoutDayId } = useParams<{ workoutDayId: string }>();
   const [, setLocation] = useLocation();
-  
+  const { toast } = useToast();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isAuthLoading, toast]);
+
   // Fetch workout day data
   const { data: workoutData, isLoading } = useQuery<WorkoutDayWithExercises>({
     queryKey: ["/api/workout-days", workoutDayId],
-    enabled: !!workoutDayId,
+    enabled: !!workoutDayId && isAuthenticated,
   });
 
   // Initialize workout session
@@ -154,7 +172,7 @@ export default function WorkoutTracker() {
     setLocation("/");
   };
 
-  if (isLoading) {
+  if (isAuthLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto space-y-4">
@@ -164,6 +182,10 @@ export default function WorkoutTracker() {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null;
   }
 
   if (!workoutData || workoutData.exercises.length === 0) {

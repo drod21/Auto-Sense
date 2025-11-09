@@ -2,9 +2,12 @@
 
 ## Overview
 
-Lipht (Long-term Integration Progressive Hypertrophy Tracker) is an AI-powered fitness planning mobile application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can track their workouts in real-time, log sets, and monitor progress.
+Lipht (Long-term Integration Progressive Hypertrophy Tracker) is an AI-powered fitness planning application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can track their workouts in real-time, log sets, and monitor progress.
 
-The application is built as a full-stack TypeScript solution with React Native (Expo) on the mobile frontend and Express on the backend, using Material Design principles through React Native Paper.
+The application is built as a full-stack TypeScript solution with:
+- **Web Frontend**: React with Vite, Wouter routing, Shadcn UI components, and Tailwind CSS
+- **Mobile Frontend**: React Native (Expo) with Material Design through React Native Paper
+- **Backend**: Express.js with TypeScript, PostgreSQL database, and Replit Auth for authentication
 
 ## User Preferences
 
@@ -172,7 +175,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
 
-**Authentication Implementation:**
+**Web Application Authentication (November 9, 2025):**
+- Added authentication to the web frontend with Replit Auth integration
+- Created Landing page for unauthenticated users showcasing app features
+- Implemented useAuth hook for managing authentication state across the app
+- Updated Header component to display user profile (avatar, name/email) and logout button
+- Added 401 error handling with automatic redirect to login
+- Protected routes properly handle both authenticated and unauthenticated states
+- Smooth loading states during authentication checks to prevent flash of incorrect content
+- Users can now login, logout, and see their personal workout programs on the web app
+
+**Authentication Implementation (Previously):**
 - Integrated Replit Auth for OAuth-based user authentication
 - Added PostgreSQL-backed session management with connect-pg-simple
 - Created users and sessions tables in database schema

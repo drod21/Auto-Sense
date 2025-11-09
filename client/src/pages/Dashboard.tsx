@@ -22,6 +22,7 @@ import { Search, Upload, Dumbbell, Calendar, Trash2, ArrowLeft, Grid3x3 } from "
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import type { Program, Phase, WorkoutDay, Exercise } from "@shared/schema";
 
 interface PhaseWithDays extends Phase {
@@ -179,6 +180,17 @@ export default function Dashboard() {
       }, 100);
     },
     onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete program",

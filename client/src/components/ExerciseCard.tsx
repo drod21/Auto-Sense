@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Timer, TrendingUp, Hash, Flame } from "lucide-react";
+import { Play, Timer, TrendingUp, Hash, Flame, Video } from "lucide-react";
 
 interface ExerciseCardProps {
   exerciseName: string;
@@ -12,7 +12,25 @@ interface ExerciseCardProps {
   rpe?: number | null;
   repRangeMin: number;
   repRangeMax: number;
+  videoUrl?: string | null;
   onStart?: () => void;
+}
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  const patterns = [
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`;
+    }
+  }
+  
+  return null;
 }
 
 export default function ExerciseCard({
@@ -24,6 +42,7 @@ export default function ExerciseCard({
   rpe,
   repRangeMin,
   repRangeMax,
+  videoUrl,
   onStart,
 }: ExerciseCardProps) {
   const formatTime = (seconds: number) => {
@@ -32,6 +51,8 @@ export default function ExerciseCard({
     const secs = seconds % 60;
     return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   };
+
+  const embedUrl = videoUrl ? getYouTubeEmbedUrl(videoUrl) : null;
 
   return (
     <Card className="hover-elevate transition-all" data-testid={`card-exercise-${exerciseName.toLowerCase().replace(/\s+/g, '-')}`}>
@@ -44,6 +65,20 @@ export default function ExerciseCard({
         )}
       </CardHeader>
       <CardContent className="space-y-4">
+        {embedUrl && (
+          <div className="rounded-md overflow-hidden" data-testid="video-container">
+            <iframe
+              width="100%"
+              height="200"
+              src={embedUrl}
+              title="Exercise demonstration"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="rounded-md"
+            />
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div className="flex items-center gap-2">
             <Hash className="w-4 h-4 text-muted-foreground" />

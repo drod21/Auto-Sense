@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Linking } from 'react-native';
 import {
   Text,
   Card,
@@ -185,6 +185,17 @@ export default function WorkoutTrackerScreen() {
               </Chip>
             )}
 
+            {currentExercise.videoUrl && (
+              <Button
+                mode="outlined"
+                icon="youtube"
+                onPress={() => Linking.openURL(currentExercise.videoUrl!)}
+                style={styles.videoButton}
+              >
+                Watch Exercise Video
+              </Button>
+            )}
+
             <Divider style={styles.divider} />
 
             <View style={styles.detailsRow}>
@@ -359,6 +370,10 @@ const styles = StyleSheet.create({
   supersetChip: {
     alignSelf: 'flex-start',
     marginBottom: 12,
+  },
+  videoButton: {
+    marginTop: 8,
+    marginBottom: 8,
   },
   divider: {
     marginVertical: 12,

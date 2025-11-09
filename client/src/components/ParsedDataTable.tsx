@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2, Trash2, Video } from "lucide-react";
 
 interface Exercise {
   id: string;
@@ -19,6 +19,7 @@ interface Exercise {
   rpe?: number | null;
   repRangeMin: number;
   repRangeMax: number;
+  videoUrl?: string | null;
 }
 
 interface ParsedDataTableProps {
@@ -68,6 +69,17 @@ export default function ParsedDataTable({ exercises, onEdit, onDelete }: ParsedD
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
+                  {exercise.videoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => window.open(exercise.videoUrl!, '_blank')}
+                      data-testid={`button-video-${exercise.id}`}
+                      title="Watch exercise video"
+                    >
+                      <Video className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"

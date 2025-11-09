@@ -107,6 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 notes: parsedExercise.notes || null,
                 supersetGroup: parsedExercise.supersetGroup || null,
                 exerciseOrder: parsedExercise.exerciseOrder,
+                videoUrl: parsedExercise.videoUrl || null,
               };
 
               // Validate before storing

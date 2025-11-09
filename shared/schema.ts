@@ -70,6 +70,7 @@ export const exercises = pgTable("exercises", {
   notes: text("notes"),
   supersetGroup: text("superset_group"), // e.g., "A1", "A2" for supersets
   exerciseOrder: integer("exercise_order").notNull(),
+  videoUrl: text("video_url"), // YouTube URL for exercise demonstration
 });
 
 // Relations

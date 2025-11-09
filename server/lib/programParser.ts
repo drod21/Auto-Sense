@@ -35,6 +35,7 @@ export interface ParsedExercise {
   notes?: string;
   supersetGroup?: string;
   exerciseOrder: number;
+  videoUrl?: string;
 }
 
 export async function parseProgramSpreadsheet(
@@ -253,8 +254,13 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
         }
       }
       
+      // Extract YouTube URL from exercise name if present
+      const { cleanName, videoUrl } = extractYouTubeUrl(exercise.exerciseName);
+      
       processedExercises.push({
         ...exercise,
+        // Use cleaned exercise name (without URL)
+        exerciseName: cleanName,
         // Fix warmup sets - should be 0-5
         warmupSets: validateWarmupSets(exercise.warmupSets),
         // Fix working sets - should be 1-10
@@ -265,6 +271,8 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
         exerciseOrder: exerciseOrder++,
         // Apply corrected superset group
         supersetGroup: supersetGroup || null,
+        // Add extracted video URL
+        videoUrl: videoUrl || undefined,
       });
     }
     
@@ -279,6 +287,62 @@ Return the parsed phase structure as JSON. Include suggested rest days to comple
     phaseNumber,
     description: parsed.description || null,
     workoutDays: validatedWorkoutDays,
+  };
+}
+
+// Helper function to extract and validate YouTube URLs from exercise names
+interface ExerciseNameWithVideo {
+  cleanName: string;
+  videoUrl: string | null;
+}
+
+function extractYouTubeUrl(exerciseName: string): ExerciseNameWithVideo {
+  if (!exerciseName) {
+    return { cleanName: exerciseName, videoUrl: null };
+  }
+
+  // YouTube URL patterns (no global flag to avoid stateful lastIndex issues)
+  const youtubePatterns = [
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:[&?][^\s]*)?/i,
+    /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?][^\s]*)?/i,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?][^\s]*)?/i,
+  ];
+
+  let videoId: string | null = null;
+  let urlMatch: string | null = null;
+
+  // Try to find a YouTube URL in the exercise name
+  for (const pattern of youtubePatterns) {
+    const match = pattern.exec(exerciseName);
+    if (match) {
+      videoId = match[1];
+      urlMatch = match[0];
+      break;
+    }
+  }
+
+  if (!videoId || !urlMatch) {
+    return { cleanName: exerciseName, videoUrl: null };
+  }
+
+  // Create clean, normalized YouTube URL
+  const normalizedUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+  // Remove the URL from the exercise name and clean up whitespace
+  let cleanName = exerciseName.replace(urlMatch, '').trim();
+  
+  // Remove common separators left over after URL removal
+  cleanName = cleanName.replace(/[-–—]\s*$/, '').trim();
+  cleanName = cleanName.replace(/^\s*[-–—]/, '').trim();
+  
+  // If the name is empty after removing URL, use a default
+  if (!cleanName) {
+    cleanName = 'Exercise';
+  }
+
+  return {
+    cleanName,
+    videoUrl: normalizedUrl,
   };
 }
 

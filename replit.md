@@ -54,3 +54,48 @@ The system is a full-stack TypeScript application.
 - **Authentication:** `passport`, `openid-client`, `connect-pg-simple`, `express-session`
 - **Development Tools:** `vite`, `typescript`, `tsx`, `esbuild`, `@replit/vite-plugin-*`
 - **Third-Party Services:** Replit AI Integrations, Neon Database
+
+## Recent Changes (November 2025)
+
+**Cancel and Complete Unfinished Workout Features (November 23, 2025):**
+
+**Backend:**
+- DELETE /api/workout-sessions/:id - Deletes session and all associated completed sets
+- PATCH /api/workout-sessions/:id/complete - Marks session complete (no validation required, supports early completion)
+- Both endpoints are user-scoped with authentication checks
+
+**Web App (React + TanStack Query):**
+- **Cancel Workout**: Three-dot menu → "Cancel Workout" → Confirmation dialog
+  - DELETE mutation invalidates query cache and navigates to dashboard
+  - Dialogs close in both success/error paths to prevent stuck UI
+  - Toast feedback for all outcomes
+- **Finish Early**: Three-dot menu → "Finish Early" → Confirmation dialog
+  - PATCH mutation marks workout complete regardless of remaining exercises
+  - Cache invalidation + immediate navigation prevents stale state
+  - Toast feedback confirms save or reports errors
+- **Architecture**: TanStack Query as single source of truth, real-time sync with database
+
+**Mobile App (React Native + Hybrid State):**
+- **Session Creation**: Optional POST /api/workout-sessions on mount (once, non-blocking)
+  - sessionAttempted flag prevents infinite loops
+  - Success → dbSessionId set → backend mode enabled
+  - Failure → dbSessionId null → local-only mode continues seamlessly
+- **Cancel Workout**: Menu → "Cancel Workout" → Dialog confirmation
+  - Backend mode: DELETE API → snackbar → navigate back
+  - Local mode: snackbar → navigate back (discards local progress)
+  - Dialog closes immediately in all paths
+- **Finish Early**: Menu → "Finish Early" → Dialog confirmation
+  - Backend mode: PATCH API → update local state → snackbar "Workout saved!"
+  - Local mode: update local state → snackbar "Workout saved locally!"
+  - Both modes show completion trophy screen
+- **Architecture**: Local state (session object) as primary source, optional backend sync when authenticated
+- **apiClient Enhancement**: Added PATCH method for complete endpoint
+
+**WorkoutTracker Refactoring - Real-time Database State (November 23, 2025):**
+- **Removed all localStorage-based session state management** in favor of real-time database-driven state
+- **Session resumption**: useQuery fetches or creates workout session via POST /api/workout-sessions (backend already handled existing sessions)
+- **Smart session positioning**: On mount, calculates first incomplete exercise based on completedSets vs required sets, scrolls to position
+- **Performance optimization**: Memoized exerciseSetsMap and exerciseCompletionMap reduce O(n²) filtering to O(n)
+- **Real-time set logging**: POST /api/workout-sessions/:id/sets immediately saves each set to database, invalidates cache, triggers re-render
+- **Completion flow**: PATCH /api/workout-sessions/:id/complete marks workout done, navigates to dashboard
+- **Architecture change**: Database is now single source of truth → TanStack Query → Memoized Maps → UI (unidirectional data flow)

@@ -6,6 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -13,7 +30,10 @@ import {
   CheckCircle2,
   Dumbbell,
   Trophy,
-  ExternalLink
+  ExternalLink,
+  MoreVertical,
+  Trash2,
+  CheckCheck
 } from "lucide-react";
 import SetLogger from "@/components/SetLogger";
 import RestTimer from "@/components/RestTimer";
@@ -212,7 +232,7 @@ export default function WorkoutTracker() {
     });
   };
 
-  // Complete workout mutation
+  // Complete workout mutation (requires all exercises complete)
   const completeWorkoutMutation = useMutation({
     mutationFn: async () => {
       if (!dbSessionId) throw new Error("No active session");
@@ -220,11 +240,16 @@ export default function WorkoutTracker() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate session query to clear cache
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-sessions', 'start', workoutDayId] });
+      
       toast({
         title: "Workout Complete!",
         description: "Great job! Your workout has been saved.",
       });
-      setTimeout(() => setLocation("/"), 1000);
+      
+      // Immediately redirect to dashboard
+      setLocation("/");
     },
     onError: () => {
       toast({
@@ -235,9 +260,71 @@ export default function WorkoutTracker() {
     },
   });
 
+  // Complete unfinished workout mutation (marks as complete even if not all exercises done)
+  const completeUnfinishedMutation = useMutation({
+    mutationFn: async () => {
+      if (!dbSessionId) throw new Error("No active session");
+      const response = await apiRequest("PATCH", `/api/workout-sessions/${dbSessionId}/complete`);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate session query to clear cache
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-sessions', 'start', workoutDayId] });
+      
+      toast({
+        title: "Workout Saved!",
+        description: "Your partial workout has been saved.",
+      });
+      
+      // Immediately redirect to dashboard
+      setLocation("/");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save workout",
+        variant: "destructive",
+      });
+      setShowCompleteUnfinishedDialog(false);
+    },
+  });
+
+  // Cancel workout mutation (deletes session and all sets)
+  const cancelWorkoutMutation = useMutation({
+    mutationFn: async () => {
+      if (!dbSessionId) throw new Error("No active session");
+      const response = await apiRequest("DELETE", `/api/workout-sessions/${dbSessionId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate session query to clear cache
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-sessions', 'start', workoutDayId] });
+      
+      toast({
+        title: "Workout Canceled",
+        description: "All data has been discarded.",
+      });
+      
+      // Immediately redirect to dashboard
+      setLocation("/");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to cancel workout",
+        variant: "destructive",
+      });
+      setShowCancelDialog(false);
+    },
+  });
+
   const completeWorkout = () => {
     completeWorkoutMutation.mutate();
   };
+
+  // Alert dialog state
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showCompleteUnfinishedDialog, setShowCompleteUnfinishedDialog] = useState(false);
 
   if (isAuthLoading || isLoading) {
     return (
@@ -296,9 +383,36 @@ export default function WorkoutTracker() {
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="font-mono text-xs sm:text-sm">
-              {Math.round(progressPercentage)}%
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-mono text-xs sm:text-sm">
+                {Math.round(progressPercentage)}%
+              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" data-testid="button-workout-menu">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setShowCompleteUnfinishedDialog(true)}
+                    data-testid="menu-item-complete-unfinished"
+                  >
+                    <CheckCheck className="h-4 w-4 mr-2" />
+                    Finish Early
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowCancelDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                    data-testid="menu-item-cancel-workout"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Cancel Workout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           
           {/* Progress bar */}
@@ -514,6 +628,53 @@ export default function WorkoutTracker() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cancel Workout Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Workout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all your logged sets and discard this workout session. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-dialog-cancel">
+              Keep Workout
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelWorkoutMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-cancel-dialog-confirm"
+            >
+              Cancel Workout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Complete Unfinished Workout Dialog */}
+      <AlertDialog open={showCompleteUnfinishedDialog} onOpenChange={setShowCompleteUnfinishedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finish Early?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You haven't completed all exercises yet. Your progress will be saved, but this workout will be marked as complete.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-finish-dialog-cancel">
+              Continue Workout
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => completeUnfinishedMutation.mutate()}
+              data-testid="button-finish-dialog-confirm"
+            >
+              Finish Early
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

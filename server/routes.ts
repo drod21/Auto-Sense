@@ -396,6 +396,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cancel workout session (delete session and all sets - protected)
+  app.delete("/api/workout-sessions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = req.params.id;
+
+      // Verify session belongs to user
+      const session = await storage.getWorkoutSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Workout session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: "You can only cancel your own sessions" });
+      }
+
+      const deleted = await storage.deleteWorkoutSession(sessionId);
+      if (!deleted) {
+        return res.status(500).json({ error: "Failed to delete workout session" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error canceling workout session:", error);
+      res.status(500).json({ error: "Failed to cancel workout session" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

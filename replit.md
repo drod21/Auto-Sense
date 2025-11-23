@@ -175,6 +175,20 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
 
+**Cancel and Complete Unfinished Workout Features (November 23, 2025):**
+- **Cancel Workout**: Added ability to delete workout session and all logged sets
+  - DELETE /api/workout-sessions/:id endpoint removes session and all associated completed sets
+  - Confirmation dialog prevents accidental cancellation
+  - All data is discarded as if the user never started the workout
+- **Finish Early**: Added ability to complete workout even if not all exercises are done
+  - Uses existing PATCH /api/workout-sessions/:id/complete endpoint
+  - Saves all logged sets and marks session as complete
+  - Useful for shortened workouts or when user can't complete all exercises
+- **UI Improvements**: Dropdown menu in workout tracker header with both options
+  - Three-dot menu (MoreVertical icon) provides access to both features
+  - Alert dialogs confirm destructive actions before execution
+  - Toast notifications provide feedback on success/failure
+
 **WorkoutTracker Refactoring - Real-time Database State (November 23, 2025):**
 - **Removed all localStorage-based session state management** in favor of real-time database-driven state
 - **Session resumption**: useQuery fetches or creates workout session via POST /api/workout-sessions (backend already handled existing sessions)

@@ -46,6 +46,7 @@ export interface IStorage {
   getActiveWorkoutSession(userId: string, workoutDayId: string): Promise<WorkoutSession | undefined>;
   createWorkoutSession(session: InsertWorkoutSession): Promise<WorkoutSession>;
   completeWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
+  deleteWorkoutSession(id: string): Promise<boolean>;
 
   // Completed Set methods
   getCompletedSetsBySessionId(sessionId: string): Promise<CompletedSet[]>;
@@ -209,6 +210,15 @@ export class DbStorage implements IStorage {
       .where(eq(workoutSessions.id, id))
       .returning();
     return result[0];
+  }
+
+  async deleteWorkoutSession(id: string): Promise<boolean> {
+    // Delete all completed sets for this session first
+    await db.delete(completedSets).where(eq(completedSets.workoutSessionId, id));
+    
+    // Then delete the session
+    const result = await db.delete(workoutSessions).where(eq(workoutSessions.id, id)).returning();
+    return result.length > 0;
   }
 
   // Completed Set methods

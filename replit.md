@@ -175,6 +175,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
 
+**WorkoutTracker Refactoring - Real-time Database State (November 23, 2025):**
+- **Removed all localStorage-based session state management** in favor of real-time database-driven state
+- **Session resumption**: useQuery fetches or creates workout session via POST /api/workout-sessions (backend already handled existing sessions)
+- **Smart resume positioning**: Automatically positions user on first incomplete exercise when resuming a session
+- **Real-time sync**: Query invalidation after each set mutation ensures UI reflects latest database state
+- **Performance optimization**: Memoized exerciseSetsMap and exerciseCompletionMap eliminate O(n²) filtering operations
+- **No stale data**: completedSets array comes directly from TanStack Query, not manual state updates
+- **Eliminated race conditions**: Single source of truth (database) prevents inconsistencies between localStorage and server
+- **Exercise completion logic**: Calculated on-the-fly from exerciseSetsMap.get(exerciseId).length >= totalSetsNeeded
+- **Progress tracking**: Real-time progress percentage based on actual completed exercises from database
+- Architecture: Session state → Query → Memoized maps → UI (unidirectional data flow)
+
 **Web Application Authentication (November 9, 2025):**
 - Integrated Replit Auth for web frontend with complete OAuth support (Google, GitHub, X, Apple, email/password)
 - Created Landing page showcasing app features for unauthenticated users

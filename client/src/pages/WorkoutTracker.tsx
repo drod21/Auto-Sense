@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +19,11 @@ import SetLogger from "@/components/SetLogger";
 import RestTimer from "@/components/RestTimer";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { 
   WorkoutDay, 
   Exercise, 
   WorkoutSession, 
-  ExerciseProgress,
   CompletedSet 
 } from "@shared/schema";
 
@@ -57,34 +57,63 @@ export default function WorkoutTracker() {
     enabled: !!workoutDayId && isAuthenticated,
   });
 
-  // Initialize workout session
-  const [session, setSession] = useState<WorkoutSession>({
-    workoutDayId: workoutDayId || "",
-    startedAt: new Date().toISOString(),
-    exerciseProgress: [],
-    currentExerciseIndex: 0,
-    isComplete: false,
+  // Create or resume workout session (automatically fetches existing session)
+  const { data: sessionData, isLoading: sessionLoading } = useQuery<{ session: WorkoutSession; sets: CompletedSet[] }>({
+    queryKey: ['/api/workout-sessions', 'start', workoutDayId],
+    queryFn: async () => {
+      const response = await apiRequest("POST", "/api/workout-sessions", { workoutDayId });
+      return response.json();
+    },
+    enabled: !!workoutDayId && isAuthenticated,
+    staleTime: Infinity,
   });
 
-  // Initialize exercise progress when workout data loads
+  const dbSessionId = sessionData?.session.id;
+  const completedSets = sessionData?.sets || [];
+
+  // Track current exercise index
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+
+  // Calculate which exercise to start on when resuming session
   useEffect(() => {
-    if (workoutData && session.exerciseProgress.length === 0) {
-      const progress: ExerciseProgress[] = workoutData.exercises.map(exercise => ({
-        exerciseId: exercise.id,
-        completedSets: [],
-        isComplete: false,
-      }));
-      setSession(prev => ({ ...prev, exerciseProgress: progress }));
+    if (!workoutData || !sessionData || currentExerciseIndex !== 0) return;
+    
+    // Find the first incomplete exercise
+    const firstIncompleteIndex = workoutData.exercises.findIndex((exercise) => {
+      const exerciseSets = sessionData.sets.filter(set => set.exerciseId === exercise.id);
+      const totalSetsNeeded = (exercise.warmupSets || 0) + exercise.workingSets;
+      return exerciseSets.length < totalSetsNeeded;
+    });
+
+    // If all exercises are complete, stay at index 0, otherwise go to first incomplete
+    if (firstIncompleteIndex !== -1) {
+      setCurrentExerciseIndex(firstIncompleteIndex);
     }
-  }, [workoutData, session.exerciseProgress.length]);
+  }, [workoutData, sessionData]);
 
   // Rest timer state
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restTimerDuration, setRestTimerDuration] = useState(180); // 3 minutes default
 
   // Get current exercise
-  const currentExercise = workoutData?.exercises[session.currentExerciseIndex];
-  const currentProgress = session.exerciseProgress[session.currentExerciseIndex];
+  const currentExercise = workoutData?.exercises[currentExerciseIndex];
+  
+  // Memoize exercise-to-sets mapping to avoid repeated filtering
+  const exerciseSetsMap = useMemo(() => {
+    const map = new Map<string, CompletedSet[]>();
+    for (const set of completedSets) {
+      const sets = map.get(set.exerciseId) || [];
+      sets.push(set);
+      map.set(set.exerciseId, sets);
+    }
+    return map;
+  }, [completedSets]);
+  
+  // Helper to get sets for current exercise
+  const getCurrentExerciseSets = () => {
+    if (!currentExercise) return [];
+    return exerciseSetsMap.get(currentExercise.id) || [];
+  };
 
   // Helper function to get YouTube embed URL
   const getYouTubeEmbedUrl = (url: string): string | null => {
@@ -104,91 +133,110 @@ export default function WorkoutTracker() {
     return null;
   };
 
+  // Memoize exercise completion status
+  const exerciseCompletionMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    if (!workoutData) return map;
+    
+    for (const exercise of workoutData.exercises) {
+      const sets = exerciseSetsMap.get(exercise.id) || [];
+      const totalSetsNeeded = (exercise.warmupSets || 0) + exercise.workingSets;
+      map.set(exercise.id, sets.length >= totalSetsNeeded);
+    }
+    return map;
+  }, [workoutData, exerciseSetsMap]);
+
+  // Calculate if current exercise is complete
+  const totalSetsNeeded = (currentExercise?.warmupSets || 0) + (currentExercise?.workingSets || 0);
+  const currentExerciseSets = getCurrentExerciseSets();
+  const isCurrentExerciseComplete = currentExercise 
+    ? exerciseCompletionMap.get(currentExercise.id) || false 
+    : false;
+
   // Calculate overall progress
   const totalExercises = workoutData?.exercises.length || 0;
-  const completedExercises = session.exerciseProgress.filter(p => p.isComplete).length;
+  const completedExercises = workoutData?.exercises.filter(exercise => 
+    exerciseCompletionMap.get(exercise.id) || false
+  ).length || 0;
   const progressPercentage = totalExercises > 0 
     ? (completedExercises / totalExercises) * 100 
     : 0;
 
   // Navigation handlers
   const goToPreviousExercise = () => {
-    if (session.currentExerciseIndex > 0) {
-      setSession(prev => ({
-        ...prev,
-        currentExerciseIndex: prev.currentExerciseIndex - 1
-      }));
+    if (currentExerciseIndex > 0) {
+      setCurrentExerciseIndex(prev => prev - 1);
     }
   };
 
   const goToNextExercise = () => {
-    if (session.currentExerciseIndex < totalExercises - 1) {
-      setSession(prev => ({
-        ...prev,
-        currentExerciseIndex: prev.currentExerciseIndex + 1
-      }));
+    if (currentExerciseIndex < totalExercises - 1) {
+      setCurrentExerciseIndex(prev => prev + 1);
     }
   };
 
-  const markExerciseComplete = () => {
-    const updatedProgress = [...session.exerciseProgress];
-    updatedProgress[session.currentExerciseIndex].isComplete = true;
-    
-    setSession(prev => ({
-      ...prev,
-      exerciseProgress: updatedProgress
-    }));
-
-    // Auto-advance to next exercise if not the last one
-    if (session.currentExerciseIndex < totalExercises - 1) {
-      setTimeout(goToNextExercise, 500);
-    }
-  };
-
-  const handleSetCompleted = (set: CompletedSet) => {
-    const updatedProgress = [...session.exerciseProgress];
-    const currentExerciseProgress = updatedProgress[session.currentExerciseIndex];
-    currentExerciseProgress.completedSets.push(set);
-    
-    // Check if exercise is complete
-    if (currentExercise) {
-      const totalSetsNeeded = (currentExercise.warmupSets || 0) + currentExercise.workingSets;
-      if (currentExerciseProgress.completedSets.length >= totalSetsNeeded) {
-        currentExerciseProgress.isComplete = true;
+  // Log set mutation
+  const logSetMutation = useMutation({
+    mutationFn: async (setData: { exerciseId: string; setNumber: number; weight: number; reps: number; rpe?: number; isWarmup?: boolean }) => {
+      if (!dbSessionId) throw new Error("No active session");
+      const response = await apiRequest("POST", `/api/workout-sessions/${dbSessionId}/sets`, setData);
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate session query to refetch sets
+      queryClient.invalidateQueries({ queryKey: ['/api/workout-sessions', 'start', workoutDayId] });
+      
+      // Start rest timer
+      if (currentExercise?.restTimer && currentExercise.restTimer !== "0 min") {
+        const match = currentExercise.restTimer.match(/(\d+)/);
+        const minutes = match ? parseInt(match[1]) : 3;
+        setRestTimerDuration(minutes * 60);
+        setRestTimerActive(true);
       }
-    }
-    
-    setSession(prev => ({
-      ...prev,
-      exerciseProgress: updatedProgress
-    }));
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to log set",
+        variant: "destructive",
+      });
+    },
+  });
 
-    // Start rest timer
-    if (currentExercise?.restTimer && currentExercise.restTimer !== "0 min") {
-      // Parse rest timer duration (e.g., "~3-4 min" -> 210 seconds)
-      const match = currentExercise.restTimer.match(/(\d+)/);
-      const minutes = match ? parseInt(match[1]) : 3;
-      setRestTimerDuration(minutes * 60);
-      setRestTimerActive(true);
-    }
+  const handleSetCompleted = (set: { setNumber: number; weight: number; reps: number; rpe?: number; isWarmup?: boolean }) => {
+    if (!currentExercise) return;
+    
+    logSetMutation.mutate({
+      exerciseId: currentExercise.id,
+      ...set,
+    });
   };
+
+  // Complete workout mutation
+  const completeWorkoutMutation = useMutation({
+    mutationFn: async () => {
+      if (!dbSessionId) throw new Error("No active session");
+      const response = await apiRequest("PATCH", `/api/workout-sessions/${dbSessionId}/complete`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Workout Complete!",
+        description: "Great job! Your workout has been saved.",
+      });
+      setTimeout(() => setLocation("/"), 1000);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to complete workout",
+        variant: "destructive",
+      });
+    },
+  });
 
   const completeWorkout = () => {
-    setSession(prev => ({
-      ...prev,
-      completedAt: new Date().toISOString(),
-      isComplete: true
-    }));
-    
-    // Store session data in localStorage for review
-    localStorage.setItem(`workout-session-${workoutDayId}`, JSON.stringify({
-      ...session,
-      completedAt: new Date().toISOString(),
-      isComplete: true
-    }));
-    
-    // Navigate back to dashboard
-    setLocation("/");
+    completeWorkoutMutation.mutate();
   };
 
   if (isAuthLoading || isLoading) {
@@ -244,7 +292,7 @@ export default function WorkoutTracker() {
               <div className="min-w-0 flex-1">
                 <h1 className="text-base sm:text-xl font-bold truncate">{workoutData.dayName}</h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Exercise {session.currentExerciseIndex + 1} of {totalExercises}
+                  Exercise {currentExerciseIndex + 1} of {totalExercises}
                 </p>
               </div>
             </div>
@@ -276,7 +324,7 @@ export default function WorkoutTracker() {
                     </Badge>
                   )}
                 </div>
-                {currentProgress?.isComplete && (
+                {isCurrentExerciseComplete && (
                   <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
                 )}
               </div>
@@ -369,12 +417,11 @@ export default function WorkoutTracker() {
         )}
 
         {/* Set Logger */}
-        {currentExercise && currentProgress && (
+        {currentExercise && (
           <SetLogger
             exercise={currentExercise}
-            exerciseProgress={currentProgress}
+            completedSets={getCurrentExerciseSets()}
             onSetCompleted={handleSetCompleted}
-            onExerciseComplete={markExerciseComplete}
           />
         )}
 
@@ -394,7 +441,7 @@ export default function WorkoutTracker() {
             variant="outline"
             className="h-11 sm:h-10"
             onClick={goToPreviousExercise}
-            disabled={session.currentExerciseIndex === 0}
+            disabled={currentExerciseIndex === 0}
             data-testid="button-previous-exercise"
           >
             <ChevronLeft className="h-4 w-4 mr-1 sm:mr-2" />
@@ -402,7 +449,7 @@ export default function WorkoutTracker() {
             <span className="sm:hidden">Prev</span>
           </Button>
 
-          {session.currentExerciseIndex === totalExercises - 1 && 
+          {currentExerciseIndex === totalExercises - 1 && 
            completedExercises === totalExercises ? (
             <Button
               size="lg"
@@ -418,7 +465,7 @@ export default function WorkoutTracker() {
               variant="outline"
               className="h-11 sm:h-10 ml-auto"
               onClick={goToNextExercise}
-              disabled={session.currentExerciseIndex >= totalExercises - 1}
+              disabled={currentExerciseIndex >= totalExercises - 1}
               data-testid="button-next-exercise"
             >
               Next
@@ -433,33 +480,37 @@ export default function WorkoutTracker() {
             <CardTitle className="text-lg">All Exercises</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {workoutData.exercises.map((exercise, index) => (
-              <div
-                key={exercise.id}
-                className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors
-                  ${index === session.currentExerciseIndex ? 'bg-primary/10' : 'hover:bg-muted'}
-                  ${session.exerciseProgress[index]?.isComplete ? 'opacity-60' : ''}
-                `}
-                onClick={() => setSession(prev => ({ ...prev, currentExerciseIndex: index }))}
-                data-testid={`exercise-list-item-${exercise.id}`}
-              >
-                <div className="flex-shrink-0">
-                  {session.exerciseProgress[index]?.isComplete ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : index === session.currentExerciseIndex ? (
-                    <div className="h-5 w-5 rounded-full bg-primary" />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full border-2 border-muted-foreground" />
-                  )}
+            {workoutData.exercises.map((exercise, index) => {
+              const isComplete = exerciseCompletionMap.get(exercise.id) || false;
+
+              return (
+                <div
+                  key={exercise.id}
+                  className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors
+                    ${index === currentExerciseIndex ? 'bg-primary/10' : 'hover:bg-muted'}
+                    ${isComplete ? 'opacity-60' : ''}
+                  `}
+                  onClick={() => setCurrentExerciseIndex(index)}
+                  data-testid={`exercise-list-item-${exercise.id}`}
+                >
+                  <div className="flex-shrink-0">
+                    {isComplete ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : index === currentExerciseIndex ? (
+                      <div className="h-5 w-5 rounded-full bg-primary" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{exercise.exerciseName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {exercise.workingSets} sets × {exercise.reps}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{exercise.exerciseName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {exercise.workingSets} sets × {exercise.reps}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>

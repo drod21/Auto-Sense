@@ -180,6 +180,14 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({
   id: true,
 });
 
+export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).omit({
+  id: true,
+});
+
+export const insertCompletedSetSchema = createInsertSchema(completedSets).omit({
+  id: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -196,30 +204,11 @@ export type WorkoutDay = typeof workoutDays.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 
-// Workout Session Types (for tracking active workouts)
-export interface CompletedSet {
-  setNumber: number;
-  weight: number;
-  reps: number;
-  rpe?: number;
-  completedAt: string;
-  isWarmup?: boolean;
-}
+export type InsertWorkoutSession = z.infer<typeof insertWorkoutSessionSchema>;
+export type WorkoutSession = typeof workoutSessions.$inferSelect;
 
-export interface ExerciseProgress {
-  exerciseId: string;
-  completedSets: CompletedSet[];
-  isComplete: boolean;
-}
-
-export interface WorkoutSession {
-  workoutDayId: string;
-  startedAt: string;
-  completedAt?: string;
-  exerciseProgress: ExerciseProgress[];
-  currentExerciseIndex: number;
-  isComplete: boolean;
-}
+export type InsertCompletedSet = z.infer<typeof insertCompletedSetSchema>;
+export type CompletedSet = typeof completedSets.$inferSelect;
 
 // Legacy types for backwards compatibility (will be removed later)
 export const workouts = programs; // Alias for backwards compat

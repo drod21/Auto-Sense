@@ -3,7 +3,9 @@ import {
   type Phase, type InsertPhase, phases,
   type WorkoutDay, type InsertWorkoutDay, workoutDays,
   type Exercise, type InsertExercise, exercises,
-  type User, type UpsertUser, users
+  type User, type UpsertUser, users,
+  type WorkoutSession, type InsertWorkoutSession, workoutSessions,
+  type CompletedSet, type InsertCompletedSet, completedSets
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -37,6 +39,17 @@ export interface IStorage {
   createExercise(exercise: InsertExercise): Promise<Exercise>;
   updateExercise(id: string, exercise: Partial<InsertExercise>): Promise<Exercise | undefined>;
   deleteExercise(id: string): Promise<boolean>;
+
+  // Workout Session methods
+  getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
+  getWorkoutSessionsByUserId(userId: string): Promise<WorkoutSession[]>;
+  getActiveWorkoutSession(userId: string, workoutDayId: string): Promise<WorkoutSession | undefined>;
+  createWorkoutSession(session: InsertWorkoutSession): Promise<WorkoutSession>;
+  completeWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
+
+  // Completed Set methods
+  getCompletedSetsBySessionId(sessionId: string): Promise<CompletedSet[]>;
+  createCompletedSet(set: InsertCompletedSet): Promise<CompletedSet>;
 }
 
 export class DbStorage implements IStorage {
@@ -156,6 +169,56 @@ export class DbStorage implements IStorage {
   async deleteExercise(id: string): Promise<boolean> {
     const result = await db.delete(exercises).where(eq(exercises.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Workout Session methods
+  async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
+    const result = await db.select().from(workoutSessions).where(eq(workoutSessions.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getWorkoutSessionsByUserId(userId: string): Promise<WorkoutSession[]> {
+    return await db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId));
+  }
+
+  async getActiveWorkoutSession(userId: string, workoutDayId: string): Promise<WorkoutSession | undefined> {
+    const { and, isNull } = await import("drizzle-orm");
+    const result = await db
+      .select()
+      .from(workoutSessions)
+      .where(
+        and(
+          eq(workoutSessions.userId, userId),
+          eq(workoutSessions.workoutDayId, workoutDayId),
+          isNull(workoutSessions.completedAt)
+        )
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async createWorkoutSession(insertSession: InsertWorkoutSession): Promise<WorkoutSession> {
+    const result = await db.insert(workoutSessions).values(insertSession).returning();
+    return result[0];
+  }
+
+  async completeWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
+    const result = await db
+      .update(workoutSessions)
+      .set({ completedAt: new Date() })
+      .where(eq(workoutSessions.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Completed Set methods
+  async getCompletedSetsBySessionId(sessionId: string): Promise<CompletedSet[]> {
+    return await db.select().from(completedSets).where(eq(completedSets.workoutSessionId, sessionId));
+  }
+
+  async createCompletedSet(insertSet: InsertCompletedSet): Promise<CompletedSet> {
+    const result = await db.insert(completedSets).values(insertSet).returning();
+    return result[0];
   }
 }
 

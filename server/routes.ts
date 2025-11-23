@@ -279,6 +279,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create workout session (start workout - protected)
+  app.post("/api/workout-sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { workoutDayId } = req.body;
+
+      if (!workoutDayId) {
+        return res.status(400).json({ error: "workoutDayId is required" });
+      }
+
+      // Check if there's already an active session for this workout day
+      const existingSession = await storage.getActiveWorkoutSession(userId, workoutDayId);
+      if (existingSession) {
+        // Return the existing session with its sets
+        const sets = await storage.getCompletedSetsBySessionId(existingSession.id);
+        return res.json({ session: existingSession, sets });
+      }
+
+      // Create new session
+      const session = await storage.createWorkoutSession({
+        userId,
+        workoutDayId,
+        startedAt: new Date(),
+      });
+
+      res.json({ session, sets: [] });
+    } catch (error) {
+      console.error("Error creating workout session:", error);
+      res.status(500).json({ error: "Failed to create workout session" });
+    }
+  });
+
+  // Log a set (protected)
+  app.post("/api/workout-sessions/:id/sets", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = req.params.id;
+      const { exerciseId, setNumber, weight, reps, rpe, isWarmup } = req.body;
+
+      // Verify session belongs to user
+      const session = await storage.getWorkoutSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Workout session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: "You can only log sets for your own sessions" });
+      }
+      if (session.completedAt) {
+        return res.status(400).json({ error: "Cannot log sets for completed workout" });
+      }
+
+      const set = await storage.createCompletedSet({
+        workoutSessionId: sessionId,
+        exerciseId,
+        setNumber,
+        weight,
+        reps,
+        rpe: rpe || null,
+        isWarmup: isWarmup || false,
+        completedAt: new Date(),
+      });
+
+      res.json(set);
+    } catch (error) {
+      console.error("Error logging set:", error);
+      res.status(500).json({ error: "Failed to log set" });
+    }
+  });
+
+  // Complete workout (protected)
+  app.patch("/api/workout-sessions/:id/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = req.params.id;
+
+      // Verify session belongs to user
+      const session = await storage.getWorkoutSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Workout session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: "You can only complete your own sessions" });
+      }
+      if (session.completedAt) {
+        return res.status(400).json({ error: "Workout already completed" });
+      }
+
+      const completedSession = await storage.completeWorkoutSession(sessionId);
+      res.json(completedSession);
+    } catch (error) {
+      console.error("Error completing workout:", error);
+      res.status(500).json({ error: "Failed to complete workout" });
+    }
+  });
+
+  // Get workout session with sets (protected)
+  app.get("/api/workout-sessions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = req.params.id;
+
+      const session = await storage.getWorkoutSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Workout session not found" });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: "You can only view your own sessions" });
+      }
+
+      const sets = await storage.getCompletedSetsBySessionId(sessionId);
+      res.json({ session, sets });
+    } catch (error) {
+      console.error("Error fetching workout session:", error);
+      res.status(500).json({ error: "Failed to fetch workout session" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

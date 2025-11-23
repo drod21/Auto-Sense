@@ -14,22 +14,19 @@ import {
 } from "lucide-react";
 import type { 
   Exercise, 
-  ExerciseProgress, 
   CompletedSet 
 } from "@shared/schema";
 
 interface SetLoggerProps {
   exercise: Exercise;
-  exerciseProgress: ExerciseProgress;
-  onSetCompleted: (set: CompletedSet) => void;
-  onExerciseComplete: () => void;
+  completedSets: CompletedSet[];
+  onSetCompleted: (set: { setNumber: number; weight: number; reps: number; rpe?: number; isWarmup?: boolean }) => void;
 }
 
 export default function SetLogger({
   exercise,
-  exerciseProgress,
+  completedSets,
   onSetCompleted,
-  onExerciseComplete
 }: SetLoggerProps) {
   const [weight, setWeight] = useState<string>("");
   const [reps, setReps] = useState<string>("");
@@ -48,7 +45,7 @@ export default function SetLogger({
 
   const targetRange = parseRepRange(exercise.reps);
   const totalSetsNeeded = (exercise.warmupSets || 0) + exercise.workingSets;
-  const completedSetsCount = exerciseProgress.completedSets.length;
+  const completedSetsCount = completedSets.length;
   const currentSetNumber = completedSetsCount + 1;
   const isWarmupSet = currentSetNumber <= (exercise.warmupSets || 0);
 
@@ -69,16 +66,13 @@ export default function SetLogger({
     const rpeValue = rpe ? parseFloat(rpe) : undefined;
 
     if (weightValue > 0 && repsValue > 0) {
-      const newSet: CompletedSet = {
+      onSetCompleted({
         setNumber: currentSetNumber,
         weight: weightValue,
         reps: repsValue,
         rpe: rpeValue,
-        completedAt: new Date().toISOString(),
         isWarmup: isWarmupSet
-      };
-
-      onSetCompleted(newSet);
+      });
       
       // Clear form for next set
       setReps("");
@@ -247,25 +241,17 @@ export default function SetLogger({
             <p className="text-muted-foreground mb-4">
               All sets completed for this exercise!
             </p>
-            <Button 
-              onClick={onExerciseComplete}
-              size="lg"
-              className="w-full h-12 sm:h-11"
-              data-testid="button-next-exercise"
-            >
-              Continue to Next Exercise
-            </Button>
           </div>
         )}
 
         {/* Completed sets summary */}
-        {exerciseProgress.completedSets.length > 0 && (
+        {completedSets.length > 0 && (
           <>
             <Separator />
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Completed Sets</h4>
               <div className="space-y-2">
-                {exerciseProgress.completedSets.map((set, index) => (
+                {completedSets.map((set, index) => (
                   <div 
                     key={index} 
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 p-2 rounded-md bg-muted/30"

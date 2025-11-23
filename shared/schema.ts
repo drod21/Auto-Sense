@@ -73,9 +73,32 @@ export const exercises = pgTable("exercises", {
   videoUrl: text("video_url"), // YouTube URL for exercise demonstration
 });
 
+// Workout Sessions track each workout in progress or completed
+export const workoutSessions = pgTable("workout_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  workoutDayId: varchar("workout_day_id").notNull(),
+  startedAt: timestamp("started_at").notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Completed Sets store individual set logs for historical tracking
+export const completedSets = pgTable("completed_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workoutSessionId: varchar("workout_session_id").notNull(),
+  exerciseId: varchar("exercise_id").notNull(),
+  setNumber: integer("set_number").notNull(),
+  weight: integer("weight").notNull(),
+  reps: integer("reps").notNull(),
+  rpe: integer("rpe"),
+  isWarmup: boolean("is_warmup").default(false).notNull(),
+  completedAt: timestamp("completed_at").notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   programs: many(programs),
+  workoutSessions: many(workoutSessions),
 }));
 
 export const programsRelations = relations(programs, ({ one, many }) => ({
@@ -100,12 +123,37 @@ export const workoutDaysRelations = relations(workoutDays, ({ one, many }) => ({
     references: [phases.id],
   }),
   exercises: many(exercises),
+  workoutSessions: many(workoutSessions),
 }));
 
-export const exercisesRelations = relations(exercises, ({ one }) => ({
+export const exercisesRelations = relations(exercises, ({ one, many }) => ({
   workoutDay: one(workoutDays, {
     fields: [exercises.workoutDayId],
     references: [workoutDays.id],
+  }),
+  completedSets: many(completedSets),
+}));
+
+export const workoutSessionsRelations = relations(workoutSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [workoutSessions.userId],
+    references: [users.id],
+  }),
+  workoutDay: one(workoutDays, {
+    fields: [workoutSessions.workoutDayId],
+    references: [workoutDays.id],
+  }),
+  completedSets: many(completedSets),
+}));
+
+export const completedSetsRelations = relations(completedSets, ({ one }) => ({
+  workoutSession: one(workoutSessions, {
+    fields: [completedSets.workoutSessionId],
+    references: [workoutSessions.id],
+  }),
+  exercise: one(exercises, {
+    fields: [completedSets.exerciseId],
+    references: [exercises.id],
   }),
 }));
 

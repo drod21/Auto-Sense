@@ -55,6 +55,10 @@ localPort = 44993
 externalPort = 6000
 
 [[ports]]
+localPort = 45383
+externalPort = 8080
+
+[[ports]]
 localPort = 46215
 externalPort = 8000
 
@@ -81,6 +85,15 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Run expo"
+mode = "sequential"
+author = 9698808
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mobile && npm run dev"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0"]

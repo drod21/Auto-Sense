@@ -268,6 +268,9 @@ export default function WorkoutTracker() {
       return response.json();
     },
     onSuccess: () => {
+      // Close dialog immediately
+      setShowCompleteUnfinishedDialog(false);
+      
       // Invalidate session query to clear cache
       queryClient.invalidateQueries({ queryKey: ['/api/workout-sessions', 'start', workoutDayId] });
       
@@ -280,12 +283,13 @@ export default function WorkoutTracker() {
       setLocation("/");
     },
     onError: () => {
+      setShowCompleteUnfinishedDialog(false);
+      
       toast({
         title: "Error",
         description: "Failed to save workout",
         variant: "destructive",
       });
-      setShowCompleteUnfinishedDialog(false);
     },
   });
 
@@ -297,6 +301,9 @@ export default function WorkoutTracker() {
       return response.json();
     },
     onSuccess: () => {
+      // Close dialog immediately
+      setShowCancelDialog(false);
+      
       // Invalidate session query to clear cache
       queryClient.invalidateQueries({ queryKey: ['/api/workout-sessions', 'start', workoutDayId] });
       
@@ -309,12 +316,13 @@ export default function WorkoutTracker() {
       setLocation("/");
     },
     onError: () => {
+      setShowCancelDialog(false);
+      
       toast({
         title: "Error",
         description: "Failed to cancel workout",
         variant: "destructive",
       });
-      setShowCancelDialog(false);
     },
   });
 

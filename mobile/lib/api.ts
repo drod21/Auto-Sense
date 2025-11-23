@@ -98,4 +98,22 @@ export const apiClient = {
       throw new Error(`API Error: ${response.statusText}`);
     }
   },
+
+  async patch<T>(endpoint: string, data?: any): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include', // Include cookies for authentication
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(error.error || `API Error: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
 };

@@ -9,9 +9,14 @@ import {
   ActivityIndicator,
   Chip,
   Divider,
+  Menu,
+  IconButton,
+  Portal,
+  Dialog,
+  Snackbar,
 } from 'react-native-paper';
-import { useRoute, RouteProp } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiClient } from '../lib/api';
 import type { WorkoutDay, Exercise, WorkoutSession, ExerciseProgress, CompletedSet } from '@shared/schema';
@@ -29,6 +34,7 @@ export default function WorkoutTrackerScreen() {
   const route = useRoute<WorkoutTrackerRouteProp>();
   const { workoutDayId } = route.params;
   const theme = useTheme();
+  const navigation = useNavigation();
 
   const { data: workoutData, isLoading } = useQuery<WorkoutDayWithExercises>({
     queryKey: ['/api/workout-days', workoutDayId],
@@ -45,6 +51,111 @@ export default function WorkoutTrackerScreen() {
 
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restTimerDuration, setRestTimerDuration] = useState(180);
+
+  // Menu and dialog state
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showFinishDialog, setShowFinishDialog] = useState(false);
+  const [dbSessionId, setDbSessionId] = useState<string | null>(null);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [sessionAttempted, setSessionAttempted] = useState(false);
+
+  // Create or resume workout session (optional - only if authenticated)
+  const createSessionMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post<{ session: { id: string } }>('/api/workout-sessions', {
+        workoutDayId,
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      setDbSessionId(data.session.id);
+      setSessionAttempted(true);
+    },
+    onError: () => {
+      // Silently fail - mobile workout can work locally without backend session
+      setDbSessionId(null);
+      setSessionAttempted(true);
+    },
+  });
+
+  // Initialize session on mount (try once, then stop)
+  useEffect(() => {
+    if (workoutDayId && !sessionAttempted && !createSessionMutation.isPending) {
+      createSessionMutation.mutate();
+    }
+  }, [workoutDayId, sessionAttempted, createSessionMutation.isPending]);
+
+  // Cancel workout - works both with and without backend session
+  const handleCancelWorkout = () => {
+    setShowCancelDialog(false);
+    
+    if (dbSessionId) {
+      // If we have a backend session, delete it
+      cancelWorkoutMutation.mutate();
+    } else {
+      // Local-only mode: just navigate back
+      setSnackbarMessage('Workout canceled');
+      setShowSnackbar(true);
+      setTimeout(() => navigation.goBack(), 500);
+    }
+  };
+
+  // Cancel workout mutation (only used when backend session exists)
+  const cancelWorkoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.delete(`/api/workout-sessions/${dbSessionId}`);
+    },
+    onSuccess: () => {
+      setSnackbarMessage('Workout canceled');
+      setShowSnackbar(true);
+      setTimeout(() => navigation.goBack(), 500);
+    },
+    onError: () => {
+      setSnackbarMessage('Failed to cancel workout');
+      setShowSnackbar(true);
+    },
+  });
+
+  // Finish early - works both with and without backend session
+  const handleFinishEarly = () => {
+    setShowFinishDialog(false);
+    
+    if (dbSessionId) {
+      // If we have a backend session, mark it complete
+      completeUnfinishedMutation.mutate();
+    } else {
+      // Local-only mode: just update local state
+      setSession((prev) => ({
+        ...prev,
+        isComplete: true,
+        completedAt: new Date().toISOString(),
+      }));
+      setSnackbarMessage('Workout saved locally!');
+      setShowSnackbar(true);
+    }
+  };
+
+  // Complete unfinished workout mutation (only used when backend session exists)
+  const completeUnfinishedMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.patch(`/api/workout-sessions/${dbSessionId}/complete`, {});
+    },
+    onSuccess: () => {
+      setSession((prev) => ({
+        ...prev,
+        isComplete: true,
+        completedAt: new Date().toISOString(),
+      }));
+      setSnackbarMessage('Workout saved!');
+      setShowSnackbar(true);
+    },
+    onError: () => {
+      setSnackbarMessage('Failed to save workout');
+      setShowSnackbar(true);
+    },
+  });
 
   useEffect(() => {
     if (workoutData && session.exerciseProgress.length === 0) {
@@ -162,12 +273,43 @@ export default function WorkoutTrackerScreen() {
     <View style={styles.container}>
       <View style={styles.progressSection}>
         <View style={styles.progressHeader}>
-          <Text variant="titleMedium">
-            Exercise {session.currentExerciseIndex + 1} of {totalExercises}
-          </Text>
-          <Text variant="bodyMedium" style={styles.progressText}>
-            {completedExercises} / {totalExercises} complete
-          </Text>
+          <View>
+            <Text variant="titleMedium">
+              Exercise {session.currentExerciseIndex + 1} of {totalExercises}
+            </Text>
+            <Text variant="bodyMedium" style={styles.progressText}>
+              {completedExercises} / {totalExercises} complete
+            </Text>
+          </View>
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={
+              <IconButton
+                icon="dots-vertical"
+                size={24}
+                onPress={() => setMenuVisible(true)}
+              />
+            }
+          >
+            <Menu.Item
+              onPress={() => {
+                setMenuVisible(false);
+                setShowFinishDialog(true);
+              }}
+              title="Finish Early"
+              leadingIcon="check-all"
+            />
+            <Divider />
+            <Menu.Item
+              onPress={() => {
+                setMenuVisible(false);
+                setShowCancelDialog(true);
+              }}
+              title="Cancel Workout"
+              leadingIcon="delete"
+            />
+          </Menu>
         </View>
         <ProgressBar progress={overallProgress} style={styles.progressBar} />
       </View>
@@ -310,6 +452,56 @@ export default function WorkoutTrackerScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Cancel Workout Dialog */}
+      <Portal>
+        <Dialog visible={showCancelDialog} onDismiss={() => setShowCancelDialog(false)}>
+          <Dialog.Title>Cancel Workout?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              This will delete all your logged sets and discard this workout session. This action cannot be undone.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowCancelDialog(false)}>Keep Workout</Button>
+            <Button
+              onPress={handleCancelWorkout}
+              textColor={theme.colors.error}
+            >
+              Cancel Workout
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Finish Early Dialog */}
+        <Dialog visible={showFinishDialog} onDismiss={() => setShowFinishDialog(false)}>
+          <Dialog.Title>Finish Early?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              You haven't completed all exercises yet. Your progress will be saved, but this workout will be marked as complete.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowFinishDialog(false)}>Continue Workout</Button>
+            <Button onPress={handleFinishEarly}>
+              Finish Early
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        visible={showSnackbar}
+        onDismiss={() => setShowSnackbar(false)}
+        duration={3000}
+        action={{
+          label: 'OK',
+          onPress: () => setShowSnackbar(false),
+        }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }

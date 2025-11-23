@@ -2,12 +2,7 @@
 
 ## Overview
 
-Lipht (Long-term Integration Progressive Hypertrophy Tracker) is an AI-powered fitness planning application that allows users to upload workout spreadsheets (CSV, Excel) and automatically parse exercise routines using OpenAI's language model. The system extracts structured workout data including exercise names, sets, reps, RPE (Rate of Perceived Exertion), rest timers, and alternative exercises. Users can track their workouts in real-time, log sets, and monitor progress.
-
-The application is built as a full-stack TypeScript solution with:
-- **Web Frontend**: React with Vite, Wouter routing, Shadcn UI components, and Tailwind CSS
-- **Mobile Frontend**: React Native (Expo) with Material Design through React Native Paper
-- **Backend**: Express.js with TypeScript, PostgreSQL database, and Replit Auth for authentication
+Lipht (Long-term Integration Progressive Hypertrophy Tracker) is an AI-powered fitness planning application. It enables users to upload workout spreadsheets (CSV, Excel), which are then parsed by an AI to extract structured workout data including exercise details, sets, reps, RPE, rest timers, and alternative exercises. Users can track workouts in real-time, log sets, and monitor progress. The project's ambition is to provide a comprehensive, AI-driven fitness tracking and planning solution across web and mobile platforms.
 
 ## User Preferences
 
@@ -15,221 +10,47 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Mobile Frontend Architecture
+### UI/UX Decisions
 
-**Framework & Build System:**
-- React Native with Expo for cross-platform mobile development (iOS & Android)
-- TypeScript for type safety
-- Metro bundler for JavaScript bundling
-- Expo Go for development testing
+The application features both a web and mobile interface. The web frontend utilizes React with Vite, Wouter routing, Shadcn UI components, and Tailwind CSS, focusing on a modern and responsive design. The mobile frontend, built with React Native (Expo), employs React Native Paper for Material Design components, ensuring a consistent and intuitive user experience across iOS and Android. Both platforms support dark mode.
 
-**Navigation:**
-- React Navigation with Bottom Tabs for main navigation
-- Stack Navigator for screen-to-screen transitions
-- Deep linking support for workout tracking
+### Technical Implementations
 
-**UI Component System:**
-- React Native Paper for Material Design components
-- Material Community Icons for iconography
-- Native animations and gestures via React Native Gesture Handler and Reanimated
-- Built-in dark mode support with automatic theme switching
+The system is a full-stack TypeScript application.
 
-**State Management:**
-- TanStack Query (React Query) for server state management and API data fetching
-- Local component state for workout session tracking
-- Real-time updates and optimistic UI updates
+**Mobile Frontend:**
+- **Framework:** React Native with Expo for cross-platform development.
+- **Navigation:** React Navigation (Bottom Tabs and Stack Navigator).
+- **UI:** React Native Paper for Material Design, Material Community Icons.
+- **State Management:** TanStack Query for server state, local component state for workout sessions.
+- **Key Screens:** LoginScreen (Replit Auth), DashboardScreen (workout programs), UploadScreen (file parsing), WorkoutTrackerScreen (real-time tracking).
+- **Mobile-Specifics:** WebView-based OAuth, session cookie management, native file picker, safe area handling.
 
-**Key Screens:**
-- **LoginScreen**: WebView-based authentication screen for Replit Auth OAuth flow. Shows branded login interface and handles session cookie management.
-- **DashboardScreen**: Displays user's workout programs with expandable details. Shows phases, workout days, and exercise counts. Includes search, delete, and navigation to individual workouts.
-- **UploadScreen**: Native document picker for CSV/Excel files with upload progress tracking and AI parsing feedback. Requires authentication. Automatic navigation to dashboard on success.
-- **WorkoutTrackerScreen**: Active workout tracking interface with exercise guidance, set logging (weight, reps, RPE), automatic rest timers, progress tracking, and completion celebration.
-
-**Key Components:**
-- **SetLoggerCard**: Input form for logging sets with weight, reps, and RPE. Shows completed sets history and warmup/working set indicators.
-- **RestTimerCard**: Countdown timer with pause/resume controls. Automatically starts after each set based on program rest time.
-
-**Mobile-Specific Features:**
-- WebView-based OAuth authentication using react-native-webview
-- Session cookie management with credentials: 'include' in fetch requests
-- Authentication state management with automatic login screen display
-- Native file picker via Expo Document Picker
-- Safe area handling for notched devices
-- Pull-to-refresh on lists
-- Native animations and transitions
-- Haptic feedback (planned)
-- Offline support (planned)
-
-### Backend Architecture
-
-**Server Framework:**
-- Express.js with TypeScript
-- CORS enabled for mobile app access
-- Custom middleware for request logging and JSON body parsing with raw buffer preservation
-- Multer for handling file uploads from mobile devices
-
-**Data Storage Strategy:**
-- PostgreSQL database (Neon serverless) with Drizzle ORM
-- Database storage implementation (`DbStorage` class) for persistent data
-- Interface-based storage abstraction (`IStorage`) allowing easy swap between implementations
-- UUID-based primary keys using `crypto.randomUUID()`
-- Multi-user support with user-scoped data isolation
-
-**Schema Design (Hierarchical Structure):**
-- `users` table: id, email, firstName, lastName, profileImageUrl, createdAt, updatedAt (user profiles from Replit Auth)
-- `sessions` table: sid, sess, expire (PostgreSQL session store for authentication)
-- `programs` table: id, name, uploadDate, description, **userId** (top-level entity, scoped to user)
-- `phases` table: id, programId, name, phaseNumber, description (subdivisions of a program)
-- `workout_days` table: id, phaseId, dayName, dayNumber, isRestDay, weekNumber (individual training sessions)
-- `exercises` table: id, workoutDayId, exerciseName, warmupSets, workingSets, reps, load, rpe, restTimer, substitutionOption1, substitutionOption2, notes, supersetGroup, exerciseOrder
-- Zod schemas for runtime validation derived from Drizzle schema definitions
-
-**Authentication & Authorization:**
-- Replit Auth integration for OAuth-based authentication
-- Session-based authentication with PostgreSQL session store (connect-pg-simple)
-- Passport.js with OpenID Connect strategy for OAuth flow
-- Protected API routes: upload and delete require authentication
-- User-scoped data: Programs filtered by userId, users can only manage their own data
-- Automatic token refresh when access tokens expire
-
-**File Processing Pipeline:**
-1. Multer middleware handles file uploads (10MB limit, CSV/Excel only)
-2. Excel/CSV file parsed to extract all sheets (phases) using XLSX library
-3. Each sheet processed in parallel using OpenAI to identify workout days and exercises
-4. OpenAI extracts complete program structure: phases → workout days → exercises
-5. Parsed data validated against Zod schemas
-6. Complete hierarchy stored: program, phases, workout days, and exercises with proper foreign key relationships
+**Backend:**
+- **Server:** Express.js with TypeScript, supporting CORS and Multer for file uploads.
+- **Database:** PostgreSQL (Neon serverless) with Drizzle ORM.
+- **Schema:** Hierarchical design including users, sessions, programs, phases, workout days, and exercises. Zod schemas are used for validation.
+- **Authentication:** Replit Auth integration for OAuth, session-based authentication with Passport.js and connect-pg-simple. User-scoped data isolation.
+- **File Processing:** Multer handles uploads, XLSX/PapaParse processes files, and OpenAI extracts structured data. Data is validated and stored hierarchically.
 
 ### AI Integration
 
-**OpenAI Configuration:**
-- Uses Replit's AI Integrations service (OpenAI-compatible API)
-- Model: GPT-5 (configured via environment variables)
-- Base URL and API key injected through Replit's platform
+- **Platform:** Replit's AI Integrations service (OpenAI-compatible API), utilizing GPT-5.
+- **Parsing:** Extracts complete program structures from multi-sheet Excel files, converting unstructured data into structured workout programs. Includes error handling, retry logic, data validation for workout parameters (sets, reps, RPE), and automatic superset detection (A1/A2).
 
-**Parsing Strategy:**
-- Complete program structure extracted from multi-sheet Excel files
-- Each sheet represents a phase with multiple workout days
-- LLM receives unstructured spreadsheet data and outputs structured program hierarchy
-- Response schema includes: phase info, workout days (with day names, numbers, rest day flags), and exercises (with name, sets, reps, RPE, rest timers, substitution options, superset grouping)
-- Parallel processing of all sheets for maximum performance
-- Error handling for malformed AI responses with retry logic for rate limits
-- **Data Validation:** Built-in validation ensures warmup sets (0-5 range), working sets (1-10 range), and RPE (1-10 or special values) are within reasonable workout ranges. Automatically fixes Excel date serial numbers that may be misinterpreted as exercise values
-- **Superset Detection:** Automatically identifies and pairs exercises with static stretches, marking them as A1/A2 supersets. Ensures proper exercise ordering within each workout day with unique sequential numbers
+### System Design Choices
 
-### External Dependencies
+- **Data Storage:** Interface-based storage abstraction allows for easy swapping of database implementations.
+- **Authentication:** Robust session management and user-scoped data access.
+- **Workout Tracking:** Real-time, database-driven state management for workout sessions, eliminating local storage dependencies. Features include session resumption, smart positioning to incomplete exercises, and real-time synchronization of logged sets. Users can cancel or complete workouts early.
 
-**Core Libraries:**
-- `@neondatabase/serverless`: PostgreSQL client for Neon (serverless Postgres)
-- `drizzle-orm` & `drizzle-kit`: Type-safe ORM and migration tools
-- `openai`: Official OpenAI SDK for LLM integration
-- `multer`: Multipart form data handling for file uploads
-- `papaparse`: CSV parsing library
-- `xlsx`: Excel file parsing library
-- `zod`: Runtime type validation and schema definition
+## External Dependencies
 
-**UI Component Dependencies:**
-- `@radix-ui/*`: Unstyled, accessible UI primitives (20+ components)
-- `@tanstack/react-query`: Asynchronous state management
-- `wouter`: Minimal client-side routing
-- `tailwindcss`: Utility-first CSS framework
-- `class-variance-authority` & `clsx`: Dynamic className management
-- `date-fns`: Date formatting utilities
-
-**Development Tools:**
-- `vite`: Frontend build tool and dev server
-- `typescript`: Type checking and compilation
-- `tsx`: TypeScript execution for Node.js
-- `esbuild`: Backend bundling for production
-- `@replit/vite-plugin-*`: Replit-specific development enhancements
-
-**Third-Party Services:**
-- Replit AI Integrations: Provides OpenAI API access without separate API key
-- Neon Database: Serverless PostgreSQL (configured but not actively used with current in-memory storage)
-
-**Authentication & Session Management:**
-- `passport`: Authentication middleware for Express
-- `passport-local`: Local authentication strategy (not currently used)
-- `openid-client`: OpenID Connect client for Replit Auth
-- `connect-pg-simple`: PostgreSQL session store for Express (actively used)
-- `memoizee`: Caching for token validation and refresh
-- `express-session`: Session management middleware
-
-**Build & Deployment:**
-- Backend Development: `npm run dev` runs Express API server on port 5000
-- Mobile Development: `npx expo start` runs Metro bundler with QR code for Expo Go
-- Backend Production: `npm start` runs production Express server
-- Mobile Production: Build with Expo EAS or standalone builds for App Store/Play Store deployment
-
-**Running the Application:**
-1. Start backend: `npm run dev` (runs on port 5000, accessible via Replit URL)
-2. Update API URL in `mobile/lib/api.ts` with your Replit backend URL
-3. Start mobile app: `npx expo start`
-4. Scan QR code with Expo Go app on your phone
-
-**Mobile Development Workflow:**
-- Backend runs on Replit (always accessible via HTTPS URL)
-- Mobile app connects to Replit backend via configured API_BASE_URL
-- Use Expo Go for quick testing without building native apps
-- Changes hot-reload automatically via Fast Refresh
-
-## Recent Changes (November 2025)
-
-**Cancel and Complete Unfinished Workout Features (November 23, 2025):**
-- **Cancel Workout**: Added ability to delete workout session and all logged sets
-  - DELETE /api/workout-sessions/:id endpoint removes session and all associated completed sets
-  - Confirmation dialog prevents accidental cancellation
-  - All data is discarded as if the user never started the workout
-- **Finish Early**: Added ability to complete workout even if not all exercises are done
-  - Uses existing PATCH /api/workout-sessions/:id/complete endpoint
-  - Saves all logged sets and marks session as complete
-  - Useful for shortened workouts or when user can't complete all exercises
-- **UI Improvements**: Dropdown menu in workout tracker header with both options
-  - Three-dot menu (MoreVertical icon) provides access to both features
-  - Alert dialogs confirm destructive actions before execution
-  - Toast notifications provide feedback on success/failure
-
-**WorkoutTracker Refactoring - Real-time Database State (November 23, 2025):**
-- **Removed all localStorage-based session state management** in favor of real-time database-driven state
-- **Session resumption**: useQuery fetches or creates workout session via POST /api/workout-sessions (backend already handled existing sessions)
-- **Smart resume positioning**: Automatically positions user on first incomplete exercise when resuming a session
-- **Real-time sync**: Query invalidation after each set mutation ensures UI reflects latest database state
-- **Performance optimization**: Memoized exerciseSetsMap and exerciseCompletionMap eliminate O(n²) filtering operations
-- **No stale data**: completedSets array comes directly from TanStack Query, not manual state updates
-- **Eliminated race conditions**: Single source of truth (database) prevents inconsistencies between localStorage and server
-- **Exercise completion logic**: Calculated on-the-fly from exerciseSetsMap.get(exerciseId).length >= totalSetsNeeded
-- **Progress tracking**: Real-time progress percentage based on actual completed exercises from database
-- Architecture: Session state → Query → Memoized maps → UI (unidirectional data flow)
-
-**Web Application Authentication (November 9, 2025):**
-- Integrated Replit Auth for web frontend with complete OAuth support (Google, GitHub, X, Apple, email/password)
-- Created Landing page showcasing app features for unauthenticated users
-- Implemented robust useAuth hook that combines isLoading and isFetching to prevent stale cache issues
-- Auth hook clears cached user data on 401 errors to ensure clean logout flow
-- Updated Header to display user profile with avatar, name/email, and logout button
-- Protected all routes (Dashboard, Upload, WorkoutTracker) with proper auth guards
-- Loading states prevent flash of unauthorized content during authentication verification
-- 401 error handling with toast notifications and automatic redirect to login
-- Session expiration properly triggers logout flow without showing stale data
-- End-to-end authentication flow tested and verified working correctly
-
-**Authentication Implementation (Previously):**
-- Integrated Replit Auth for OAuth-based user authentication
-- Added PostgreSQL-backed session management with connect-pg-simple
-- Created users and sessions tables in database schema
-- Added userId foreign key to programs table for user-scoped data
-- Protected upload and delete routes to require authentication
-- Implemented WebView-based mobile login flow using react-native-webview
-- Updated API client to handle session cookies with credentials: 'include'
-- Navigation automatically shows login screen when user is not authenticated
-- Users can only view and manage their own workout programs
-
-**React Native Conversion (October 2025):**
-- Converted from React web app to React Native mobile app
-- Implemented native mobile UI with React Native Paper
-- Added mobile file picker for workout spreadsheet uploads
-- Created workout tracking interface optimized for mobile
-- Implemented bottom tab navigation and stack navigation
-- Added native components: SetLoggerCard, RestTimerCard
-- Enabled CORS in backend for mobile API access
-- Maintained all core features: AI parsing, program management, workout tracking
+- **Database:** `@neondatabase/serverless`, `drizzle-orm`, `drizzle-kit`
+- **AI:** `openai` (via Replit AI Integrations)
+- **File Processing:** `multer`, `papaparse`, `xlsx`
+- **Validation:** `zod`
+- **Frontend (Web):** `@radix-ui/*`, `@tanstack/react-query`, `wouter`, `tailwindcss`, `class-variance-authority`, `clsx`, `date-fns`
+- **Authentication:** `passport`, `openid-client`, `connect-pg-simple`, `express-session`
+- **Development Tools:** `vite`, `typescript`, `tsx`, `esbuild`, `@replit/vite-plugin-*`
+- **Third-Party Services:** Replit AI Integrations, Neon Database
